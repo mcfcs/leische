@@ -1,9 +1,6 @@
 {
   "config": {
-    "data_dir": "data",
     "dataset_version": "v1",
-    "results_dir": "results",
-    "cache_dir": "data/cache",
     "run_name": "ablation-smoke-3_temp",
     "encoder_name": "xlm-roberta-base",
     "pooling": "mean",
@@ -67,7 +64,6 @@
     "prompt_version": "sarc-v1",
     "uyam_commit": "69d0affaca157edaf64e617d21e8ae752c9343fa"
   },
-  "leische_commit": "unknown",
-  "gate_passed": false,
-  "smoke": true
+  "leische_commit": "bd3da5ee32703559f0e69fab090e2aa14dc8e9b9",
+  "gate_passed": false
 }

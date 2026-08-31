@@ -1,11 +1,7 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "leische"
 version = "0.1.0"
-description = "Context-Aware Sarcasm Detection in Code-Switching Social Media Posts — model repository (thesis)"
+description = "Context-Aware Sarcasm Detection in Code-Switching Social Media Posts — single-notebook model pipeline (thesis)"
 requires-python = ">=3.12"
 dependencies = [
     "torch==2.6.0",
@@ -25,16 +21,10 @@ dependencies = [
     "nbformat>=5.10",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/leische"]
-
 [tool.uv]
-# torch cu124 wheels live on the PyTorch index only
+# dependency-only project: the whole pipeline lives in leische_pipeline.ipynb
+package = false
+
 [tool.uv.sources]
 torch = [{ index = "pytorch-cu124" }]
 
@@ -42,7 +32,3 @@ torch = [{ index = "pytorch-cu124" }]
 name = "pytorch-cu124"
 url = "https://download.pytorch.org/whl/cu124"
 explicit = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"

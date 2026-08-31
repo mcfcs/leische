@@ -1,5 +1,6 @@
-# data is synced from the uyam repo, never committed here (scripts/sync_data.py)
+# data comes from the uyam repo (downloaded copy or auto-detected sibling clone)
 data/
+cache/
 
 # environment / caches
 .venv/

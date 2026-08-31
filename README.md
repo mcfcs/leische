@@ -2,78 +2,73 @@
 
 Model repository for the undergraduate thesis **Context-Aware Sarcasm Detection
 in Code-Switching Social Media Posts**. The data half (collection + LLM-ensemble
-annotation) is the separate [uyam](../uyam) repository; the handoff contract is
-`uyam/docs/dataset-contract-leische.md` and the authoritative build plan is
-[docs/MODEL_PLAN.md](docs/MODEL_PLAN.md) (copied from uyam).
+annotation) is the separate [uyam](../uyam) repository; the methodology
+reference is [docs/MODEL_PLAN.md](docs/MODEL_PLAN.md).
 
 > **STATUS: SMOKE PHASE — do not train for results.**
-> The current export (`dataset-v1`) is a 100-item pilot with 8 sarcastic rows
-> and no human gold subset. The §10 data-readiness gate FAILS, and the code
-> enforces it: `train.py` refuses any non-smoke run while the gate fails, and
-> every pilot-derived number is prefixed `SMOKE`. When `dataset-v2` lands,
-> re-run `scripts/sync_data.py --version v2`, set `dataset_version: v2`, and
-> the same notebooks become the real pipeline.
+> The current export (`dataset-v1`) is a 100-item pilot (8 sarcastic rows, no
+> human gold subset). The §10 data-readiness gate FAILS and the notebook
+> enforces it: non-smoke runs are refused in code, and every pilot-derived
+> number is prefixed `SMOKE`.
+
+## Layout — one notebook
+
+The entire pipeline lives in **[leische_pipeline.ipynb](leische_pipeline.ipynb)**
+(committed with executed outputs): environment checks → data loading + contract
+validation + readiness gate → EDA → frozen thread-grouped folds → the three
+context channels with leakage assertions → the 5-stage XLM-R model behind
+RQ2 ablation flags → training harness → the two §10 smoke tests (overfit-16,
+tiny-settings 5-fold dry run) → the 8×5 ablation matrix with significance
+tests → the RQ3 two-stage sentiment evaluation.
+
+```
+leische_pipeline.ipynb   the whole pipeline (all functions inline)
+docs/MODEL_PLAN.md       methodology reference (from uyam)
+results/                 frozen folds + SMOKE artifacts (committed)
+data/                    optional local copy of the uyam export (gitignored)
+cache/                   embeddings / checkpoints (gitignored)
+```
+
+The `main` branch keeps the alternative layout (importable `src/leische`
+package + per-stage notebooks + pytest suite).
+
+## Data
+
+No sync step. The notebook looks for the export in this order:
+
+1. `./data/dataset-v1.jsonl` — a copy you downloaded from uyam
+2. `../uyam/data/annotated/` — read directly when uyam is cloned next to this repo
 
 ## Quickstart
 
 ```bash
-uv sync --all-extras            # pinned env (torch 2.6.0+cu124, Python 3.12)
-uv run python scripts/sync_data.py   # copy uyam exports into data/ (gitignored)
-uv run pytest                   # pitfall-checklist properties (§11)
+uv sync                        # pinned env (torch 2.6.0+cu124, Python 3.12)
+uv run jupyter lab             # open leische_pipeline.ipynb, run top-to-bottom
 ```
 
-Notebooks run in order (00 → 06). Each `.ipynb` is committed with executed
-outputs; the paired `.py` files (jupytext percent format) are the diff-friendly
-sources. To re-execute headless:
+Headless re-execution:
 
 ```bash
-uv run jupytext --to ipynb notebooks/01_data_eda.py
 uv run jupyter nbconvert --to notebook --execute --inplace \
-    notebooks/01_data_eda.ipynb --ExecutePreprocessor.timeout=-1
+    leische_pipeline.ipynb --ExecutePreprocessor.timeout=-1
 ```
 
-## Layout
-
-```
-data/                copied uyam exports (gitignored — sync script recreates)
-src/leische/         data.py contexts.py encoders.py model.py train.py evaluate.py config.py
-notebooks/           00 environment · 01 EDA · 02 context assembly · 03 baseline
-                     04 context model · 05 ablation matrix · 06 RQ3 sentiment
-configs/             yaml per experiment (smoke profiles now, real profiles later)
-results/             frozen folds + SMOKE run artifacts (committed)
-tests/               §11 pitfalls as executable properties
-```
-
-## Architecture (thesis-committed baseline, guide §4)
-
-Five stages behind one model class: (1) shared `xlm-roberta-base` encoder with
-mean pooling + projection for every text unit; (2) target-conditioned attention
-over conversational items (role + is_submitter embeddings) and over author
-history with `exp(−λ·Δt)` decay; (3) retrieval attention over per-fold
-sarcastic/non-sarcastic exemplar banks; (4) GMU-style gated fusion over the
-ACTIVE channels (per-instance gates, logged); (5) `MLP([t ; c_fused])`.
-`use_conv/use_temp/use_ret = False` reduces it exactly to the RQ1
-context-agnostic baseline. Every §9 upgrade (label-quality weighting, focal
-loss, auxiliary cue heads, freezing/LoRA-style options, retrieval variants,
-calibration) is a config flag, **off by default**.
-
-## Hard rules encoded in the codebase
+## Hard rules encoded in the notebook (runtime assertions)
 
 - Folds: `StratifiedGroupKFold`, stratified on `sarcastic×language`, **grouped
-  by `submission_fullname`**; frozen to `results/folds-v{N}.json` with the
-  dataset identity, refused on mismatch (§11.2, §11.8).
-- Retrieval banks: training-fold rows only, same-thread neighbors excluded,
-  rebuilt per fold, leakage asserted at build time (§11.1).
+  by `submission_fullname`**, frozen to `results/folds-v{N}.json` with the
+  dataset identity and refused on mismatch.
+- Retrieval banks: training-fold rows only, same-thread excluded, rebuilt per
+  fold, leakage asserted at build time.
 - Conversational context comes only from the embedded snapshot the annotators
-  saw — never rebuilt from the corpus dump (§11.7).
-- `keyword_oversampled` rows never enter natural-distribution metrics (§7.2).
-- `score`/replies are post-hoc signals; the thesis frames the task as post-hoc
-  thread analysis — state that framing in the manuscript (§11.5).
+  saw — never rebuilt from the corpus dump.
+- `keyword_oversampled` rows never enter natural-distribution metrics.
+- Thesis architecture is the committed baseline; every §9 upgrade is a config
+  flag defaulting to OFF.
 
-## §10 readiness gate (all must pass before real training)
+## When dataset-v2 lands
 
-1. Full corpus annotated under sarc-v2, exported as `dataset-v2`
-2. ≥ 400–500 sarcastic positives
-3. ~300-item human gold subset labeled, human-vs-ensemble κ in the card
-4. Every `language × sarcastic` cell ≥ 10
-5. Fold file frozen and committed
+1. Drop the new export in `./data/` (or just `git pull` uyam next door).
+2. Set `Config.dataset_version = "v2"` and re-run top-to-bottom — folds
+   re-freeze automatically for the new identity.
+3. Once the §10 gate prints PASS: `Config(smoke=False, ...)` for real runs.

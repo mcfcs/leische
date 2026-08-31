@@ -1,9 +1,0 @@
-# RQ1 context-agnostic baseline (ablation condition 1): same encoder, MLP([t]).
-# Thesis-committed settings — §9 upgrade flags stay at their (off) defaults.
-# smoke stays true until the §10 readiness gate passes on a v2 export;
-# train.py refuses smoke: false while the gate fails.
-run_name: baseline
-use_conv: false
-use_temp: false
-use_ret: false
-smoke: true
