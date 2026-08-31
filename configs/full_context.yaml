@@ -1,0 +1,7 @@
+# Full context-aware model (ablation condition 8): all three channels + gate.
+# Thesis-committed settings — §9 upgrade flags stay at their (off) defaults.
+run_name: full_context
+use_conv: true
+use_temp: true
+use_ret: true
+smoke: true

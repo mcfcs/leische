@@ -1,0 +1,21 @@
+# Tiny-settings smoke profile: proves the harness end-to-end on the pilot
+# export (guide §10 "what to do meanwhile"). Numbers produced under this
+# config are architecture/harness checks, never results.
+run_name: smoke
+smoke: true
+
+# shrink sequence + schedule so a full 5-fold dry run takes minutes, not hours
+max_len_target: 96
+max_len_context: 64
+max_len_selftext: 64
+batch_size: 8
+grad_accum: 1
+max_epochs: 2
+patience: 1
+max_steps_per_epoch: 8
+seeds: [13]
+
+# channels off by default; notebooks flip use_conv/use_temp/use_ret per run
+use_conv: false
+use_temp: false
+use_ret: false

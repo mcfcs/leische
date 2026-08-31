@@ -1,0 +1,15 @@
+# §7.3 ablation matrix at ultra-tiny settings (notebook 05 smoke run).
+# The notebook overrides use_conv/use_temp/use_ret per condition; everything
+# else is shared so the 8 conditions differ ONLY in active channels.
+run_name: ablation_smoke
+smoke: true
+
+max_len_target: 64
+max_len_context: 48
+max_len_selftext: 48
+batch_size: 8
+grad_accum: 1
+max_epochs: 1
+patience: 1
+max_steps_per_epoch: 6
+seeds: [13]

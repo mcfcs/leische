@@ -1,0 +1,18 @@
+# data is synced from the uyam repo, never committed here (scripts/sync_data.py)
+data/
+
+# environment / caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.jupytext.log
+
+# model checkpoints (smoke checkpoints are reproducible from the notebooks)
+results/**/checkpoints/
+*.pt
+
+# OS noise
+Thumbs.db
+.DS_Store
