@@ -16,8 +16,10 @@ reference is [docs/MODEL_PLAN.md](docs/MODEL_PLAN.md).
 
 Read before running:
 
+- **[docs/PIPELINE_SPEC.md](docs/PIPELINE_SPEC.md)** — what the notebook does,
+  section by section, with every choice traced to a manuscript clause.
 - **[docs/METHODOLOGY_REVIEW.md](docs/METHODOLOGY_REVIEW.md)** — manuscript
-  Chapter III vs. this pipeline; four open decisions (M1–M4).
+  Chapter III vs. this pipeline; the five departures (M1–M5) and why.
 - **[docs/UYAM_HANDOFF.md](docs/UYAM_HANDOFF.md)** — what uyam still owes the
   model repo, ordered by how much it blocks.
 
@@ -34,8 +36,10 @@ evaluation.
 ```
 leische_pipeline.ipynb        the whole pipeline (all functions inline)
 tools/build_uyam_export.py    uyam CSVs → the dataset contract
+tools/check_model_contract.py architecture checks (no GPU, no model download)
+docs/PIPELINE_SPEC.md         what the notebook does, clause by clause
 docs/MODEL_PLAN.md            methodology reference (from uyam)
-docs/METHODOLOGY_REVIEW.md    manuscript vs. pipeline; open decisions
+docs/METHODOLOGY_REVIEW.md    manuscript vs. pipeline; the M1–M5 decisions
 docs/UYAM_HANDOFF.md          data-side gaps and what to fix in uyam
 results/                      frozen folds + run artifacts (committed)
 data/                         the uyam export + derived contract (gitignored)
@@ -79,9 +83,10 @@ is present.
 ## Quickstart
 
 ```bash
-uv sync                                     # pinned env (torch 2.6.0+cu124, Python 3.12)
-uv run python tools/build_uyam_export.py    # build the contract from the CSVs
-uv run jupyter lab                          # open leische_pipeline.ipynb, run top-to-bottom
+uv sync                                      # pinned env (torch 2.6.0+cu124, Python 3.12)
+uv run python tools/build_uyam_export.py     # build the contract from the CSVs
+uv run python tools/check_model_contract.py  # architecture checks (seconds, CPU only)
+uv run jupyter lab                           # open leische_pipeline.ipynb, run top-to-bottom
 ```
 
 Headless re-execution:
@@ -105,6 +110,11 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
   current export has none — [handoff H9](docs/UYAM_HANDOFF.md)).
 - Aux losses mask rows whose labels uyam never collected rather than training
   on fabricated values.
+- The Stage-4 gate is `sigmoid(W[hₜ ; cᵢ])` per active channel, normalised —
+  the manuscript's §3.4.1 formulation, not a joint softmax; the target must
+  reach the gate for per-instance gating to mean anything.
+- Temporal decay modulates the attention **scores** (`−λ·Δt` pre-softmax, Δt in
+  hours, λ learnable), which is what §3.4.1 specifies.
 - Thesis architecture is the committed baseline; every §9 upgrade is a config
   flag defaulting to OFF.
 

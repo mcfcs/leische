@@ -6,16 +6,28 @@ export (4,416 rows / 403 positives / 679 threads).
 
 The manuscript is deliberately general — it was written before the data
 existed. Where it is *specific*, it should win; where it is silent, the
-pipeline is the spec of record. Four places are neither: the pipeline silently
-contradicts a specific sentence in §3.4.1. Those are the ones to decide.
+pipeline is the spec of record. Five places were neither: the pipeline silently
+contradicted a specific sentence in §3.4.1.
 
-**Bottom line:** the pipeline is **better than the manuscript on protocol** and
-**worse on two model specifics** — and the two it gets wrong are the ones that
-touch the thesis's central claim.
+**Bottom line:** the pipeline was **better than the manuscript on protocol** and
+**worse on three model specifics** — and those three touch the thesis's central
+claim. All five are now resolved in code.
+
+> **Status: M1–M5 implemented.** What each decision was and why is below; what
+> the code does now is [PIPELINE_SPEC.md](PIPELINE_SPEC.md). Verify with
+> `uv run python tools/check_model_contract.py` — no GPU, no model download.
+
+| | decision | outcome |
+|---|---|---|
+| M1 gated fusion | manuscript wins | gate rewritten to `sigmoid(W[hₜ ; cᵢ])`, normalised |
+| M2 temporal | manuscript wins on λ / units / k; the window becomes a reported knob | `k=5`, hours, λ learnable, `temporal_window_hours=48.0` |
+| M3 retrieval | code wins on the encoder; k was never a conflict | `retrieval_k=3`, sentence encoder default, `[CLS]` as an ablation |
+| M4 folds | code wins | thread grouping kept, documented as a leakage control |
+| M5 temporal decay | manuscript wins (found while testing M2) | decay modulates attention **scores**, not K/V |
 
 ---
 
-## M1 · Gated fusion — the pipeline is wrong, change the code
+## M1 · Gated fusion — the pipeline was wrong, now fixed
 
 **Manuscript §3.4.1 Stage 4:** "a scalar gate value `gᵢ` is computed by passing
 **the concatenation of the target embedding hₜ and the context vector cᵢ**
@@ -45,7 +57,7 @@ constant across instances (`gate_conv` std 0.050, `gate_ret` std **0.017**
 over the whole test fold). A per-instance gate that barely varies per instance
 is the symptom.
 
-**Fix** — roughly ten lines:
+**Implemented** in `ContextAwareSarcasmModel`:
 
 ```python
 self.gate = nn.ModuleList([nn.Linear(2 * d, 1) for _ in self.active])
@@ -55,9 +67,12 @@ raw = torch.cat([torch.sigmoid(gate(torch.cat([t, c], -1)))
 g = raw / raw.sum(-1, keepdim=True).clamp(min=1e-6)
 ```
 
-Note this also preserves the §7.3 ablation rule for free: disabled channels are
+This also preserves the §7.3 ablation rule for free: disabled channels are
 simply absent from the list, so the normalisation is over active channels only
 — no renormalising a softmax after the fact.
+
+`tools/check_model_contract.py` asserts the property the old code lacked:
+perturb the target text, hold the context fixed, and the gates must move.
 
 ---
 
@@ -74,16 +89,16 @@ simply absent from the list, so the normalisation is over active channels only
 
 `docs/MODEL_PLAN.md` §4.2 says "*thesis states fixed decay; learnable-λ is a
 strict generalization*". That is wrong. §3.4.1 Stage 2 says plainly: "**λ is a
-learnable parameter**." The default should flip to `True`, and the notebook's
-comment "`(fixed — thesis baseline)`" is backwards.
+learnable parameter**." The default is now `True`, and the notebook's comment
+"`(fixed — thesis baseline)`" — which had it backwards — is gone.
 
 ### Units — cosmetic once λ is learnable, not before
 
 With λ learnable, hours vs days is just a rescaling of λ. With λ *fixed* at
 0.1 it is not remotely cosmetic: `exp(−0.1·Δt_hours)` is dead after a day,
 `exp(−0.1·Δt_days)` still weights a month-old post at 0.05. Since the
-manuscript says learnable, switch to hours anyway so the reported λ is
-comparable to the text.
+manuscript says learnable, the channel now works in hours anyway, so the
+reported λ is directly comparable to the text.
 
 ### The 48 h window — **the manuscript is worse on this data**
 
@@ -99,10 +114,11 @@ manuscript because §3.1 assumed "a collection window of at least three
 months"; the actual annotated window is **24 days** (2026-08-01 → 08-24, see
 `UYAM_HANDOFF.md` H8). The rule was written for a corpus that does not exist.
 
-**Recommendation:** adopt the manuscript's `k=5`, hours, and learnable λ; make
-the window a config knob (`temporal_window_hours: float | None = 48`) and
-report both settings as an ablation row. That converts a data weakness into a
-stated finding instead of a silent deviation.
+**Implemented:** `temporal_k = 5`, Δt in hours, `temporal_lambda_learnable = True`,
+`temporal_lambda_init = 0.0289` (ln2/24 — a one-day half-life, in hours), and
+`temporal_window_hours: float | None = 48.0`. §12b reports the 48 h and the
+unbounded setting side by side with their coverage, which turns the data
+weakness into a stated finding instead of a silent deviation.
 
 **Either way, this must be said in the results:** with ~2/3 of rows presenting
 an empty temporal channel, RQ2's temporal condition measures *data
@@ -111,7 +127,7 @@ above next to the ablation matrix is what keeps that conclusion honest.
 
 ---
 
-## M3 · Retrieval — the pipeline is right, amend the manuscript
+## M3 · Retrieval — the pipeline is right, amend the manuscript text
 
 | | manuscript §3.4(3) | pipeline |
 |---|---|---|
@@ -134,9 +150,10 @@ k ∈ {3, 5, 10} and report; no text change needed.
    retrieval channel a moving target and forces a re-embed per epoch per fold.
    A frozen external encoder keeps the bank fixed and cheap.
 
-**Recommendation:** amend §3.4(3) to "a frozen multilingual sentence encoder",
-and keep XLM-R `[CLS]` as one ablation row so the swap is justified by a number
-rather than by assertion.
+**Implemented:** `retrieval_k = 3` (the manuscript's own stated default) and
+`retrieval_encoder = "sentence_transformer"`, with `"xlmr_cls"` built as a real
+alternative so §12b justifies the swap with a number rather than an assertion.
+Amend §3.4(3) to "a frozen multilingual sentence encoder".
 
 ---
 
@@ -168,14 +185,53 @@ relative to the target-only baseline — i.e. it manufactures the thesis's
 headline result. Ungrouped folds would produce a bigger RQ1 gap and a bigger
 RQ2 effect, and neither would be real.
 
-**Recommendation:** keep it, and state it in §3.5 as an explicit leakage
-control. A deviation that *shrinks* your own claimed effect is the kind
-examiners reward.
+**Kept unchanged.** State it in §3.5 as an explicit leakage control — a
+deviation that *shrinks* your own claimed effect is the kind examiners reward.
 
 The pipeline additionally asserts this at runtime (`fold {i}: thread spans
 train/test`) and freezes the fold file to `results/folds-v2.json` against the
 dataset identity, so every ablation condition is scored on identical splits —
 which §3.5 requires but does not say how to enforce.
+
+---
+
+## M5 · Temporal decay modulated the wrong tensor — the pipeline was wrong
+
+Found while writing the M2 regression test, which failed against the existing
+code for a reason that turned out to be real.
+
+**Manuscript §3.4.1 Stage 2:** "**attention scores** are further modulated by an
+exponential time-decay factor `exp(−λ·Δt)`".
+
+**MODEL_PLAN §4.2 and the pipeline:** `K/V = temporal item embeddings · exp(−λ·Δt)`
+— the decay scaled the *item vectors* before attention, not the scores.
+
+Those are not the same operation. `w_k` and `w_v` are affine, so an item decayed
+all the way to zero still contributes `w_v`'s bias with whatever attention weight
+it receives. Measured on the stub encoder before the fix, `|c_temp|` at Δt = 480 h
+was *larger* than at Δt = 0 h — recency weighting was not even monotone in Δt.
+
+**Implemented:** `TargetAttention` takes a `score_bias` added pre-softmax, and
+the temporal channel passes `−λ·Δt`. Multiplying the softmax weights by
+`exp(−λ·Δt)` and renormalising is exactly adding `−λ·Δt` to the scores, so this
+is the manuscript's formulation — and it is numerically stabler than either.
+
+One consequence worth stating in the manuscript: because softmax is
+shift-invariant, **a uniform Δt across a row is a no-op**. The decay ranks an
+author's posts against *each other*; it does not shrink the channel for an
+author whose history is uniformly old. Suppressing a weak temporal channel is
+the Stage-4 gate's job — and that division of labour is exactly what §3.4.1
+describes.
+
+### Related: the retrieval branch ignored its own missing-channel policy
+
+`_ret_channel` projects through `ret_proj`, which is affine — so a row with an
+empty exemplar bank emitted `ret_proj.bias` rather than the zeros
+`missing_channel = "zeros"` promises (MODEL_PLAN §4.2), which made the
+`"zeros"` vs `"learned"` ablation meaningless for that channel. Empty rows are
+now explicitly zeroed. Banks are drawn from the training fold and are almost
+never empty, so this changes nothing empirically — but the two options are now
+genuinely different.
 
 ---
 
@@ -196,17 +252,20 @@ things an examiner asks for and Chapter III does not mention:
 - a data-readiness gate that **refuses to run non-smoke training** while the
   data is not ready
 
-**Worse, on two model specifics** — M1 (the gate loses target conditioning)
-and the λ default in M2. Both contradict specific sentences in §3.4.1, and M1
-undercuts the mechanism the thesis is built on. Fix both in code.
+**It was worse on three model specifics** — M1 (the gate lost target
+conditioning), the λ default in M2, and M5 (the decay modulated the wrong
+tensor). All three contradicted specific sentences in §3.4.1, and M1 and M5
+between them undercut the two mechanisms the thesis is built on. All three are
+now fixed.
 
 **Differently scoped** on retrieval (M3): better embedder, and the manuscript
 already licenses the k change.
 
 For the session recreating the methodology: **adopt the pipeline's protocol
-wholesale, fix M1 and the λ default, keep the pipeline's retrieval embedder
-and document the swap, and make the temporal window a reported knob rather
-than a hard-coded 48 h.**
+wholesale.** The model now follows Chapter III wherever Chapter III is
+specific. Exactly three departures survive — M3 (retrieval encoder), M4
+(thread-grouped folds) and the temporal-window knob — and each is reported as
+an ablation row rather than assumed.
 
 ---
 
@@ -256,4 +315,22 @@ Full detail in `UYAM_HANDOFF.md`.
 - The loader prints, every run, which fields are absent and whether
   conversational context is the annotator snapshot or a corpus rebuild.
 
-**Not yet changed:** M1–M4 above, pending a decision.
+- **M1** — Stage-4 gate rewritten to `sigmoid(W[hₜ ; cᵢ])` per active channel,
+  normalised to sum to one over the active channels.
+- **M2** — `temporal_k=5`, Δt in hours, λ learnable, and a
+  `temporal_window_hours` knob defaulting to the manuscript's 48 h.
+- **M3** — `retrieval_k=3`; `retrieval_encoder` selects the frozen sentence
+  encoder (default) or XLM-R `[CLS]` (the literal §3.4(3) wording).
+- **M4** — unchanged; thread grouping kept.
+- **M5** — temporal decay moved onto the attention scores; empty retrieval
+  banks now emit true zeros.
+- **§12b** — new specification-variant table: retrieval k, retrieval encoder,
+  the temporal window, and fixed-vs-learnable λ, each with its temporal
+  coverage.
+- **`tools/check_model_contract.py`** — architecture regression checks that run
+  the notebook's own model cell against a stubbed encoder.
+
+[PIPELINE_SPEC.md](PIPELINE_SPEC.md) documents the result clause by clause.
+
+Nothing in the model is blocked now. The remaining blocker is the human gold
+subset ([UYAM_HANDOFF.md](UYAM_HANDOFF.md) H1).
