@@ -5,28 +5,41 @@ in Code-Switching Social Media Posts**. The data half (collection + LLM-ensemble
 annotation) is the separate [uyam](../uyam) repository; the methodology
 reference is [docs/MODEL_PLAN.md](docs/MODEL_PLAN.md).
 
-> **STATUS: SMOKE PHASE — do not train for results.**
-> The current export (`dataset-v1`) is a 100-item pilot (8 sarcastic rows, no
-> human gold subset). The §10 data-readiness gate FAILS and the notebook
-> enforces it: non-smoke runs are refused in code, and every pilot-derived
-> number is prefixed `SMOKE`.
+> **STATUS: the pipeline runs on the real export, but the §10 readiness gate
+> still fails on one check.**
+> `dataset-v2` (sarc-v2) gives **4,416 rows / 403 sarcastic positives / 679
+> threads**. Four of the five gate checks pass; the blocker is that **no human
+> gold subset exists**, so nothing validates the LLM-ensemble labels — and
+> ensemble agreement on sarcasm is only Fleiss' κ = 0.386. Until a gold subset
+> lands, `run_cv` refuses non-smoke runs in code and every number is prefixed
+> `SMOKE`.
+
+Read before running:
+
+- **[docs/METHODOLOGY_REVIEW.md](docs/METHODOLOGY_REVIEW.md)** — manuscript
+  Chapter III vs. this pipeline; four open decisions (M1–M4).
+- **[docs/UYAM_HANDOFF.md](docs/UYAM_HANDOFF.md)** — what uyam still owes the
+  model repo, ordered by how much it blocks.
 
 ## Layout — one notebook
 
-The entire pipeline lives in **[leische_pipeline.ipynb](leische_pipeline.ipynb)**
-(committed with executed outputs): environment checks → data loading + contract
-validation + readiness gate → EDA → frozen thread-grouped folds → the three
-context channels with leakage assertions → the 5-stage XLM-R model behind
-RQ2 ablation flags → training harness → the two §10 smoke tests (overfit-16,
-tiny-settings 5-fold dry run) → the 8×5 ablation matrix with significance
-tests → the RQ3 two-stage sentiment evaluation.
+The entire pipeline lives in **[leische_pipeline.ipynb](leische_pipeline.ipynb)**:
+environment checks → data loading + contract validation + readiness gate → EDA
+→ frozen thread-grouped folds → the three context channels with leakage
+assertions → the 5-stage XLM-R model behind RQ2 ablation flags → training
+harness → the two §10 smoke tests (overfit-16, tiny-settings 5-fold dry run) →
+the 8×5 ablation matrix with significance tests → the RQ3 two-stage sentiment
+evaluation.
 
 ```
-leische_pipeline.ipynb   the whole pipeline (all functions inline)
-docs/MODEL_PLAN.md       methodology reference (from uyam)
-results/                 frozen folds + SMOKE artifacts (committed)
-data/                    optional local copy of the uyam export (gitignored)
-cache/                   embeddings / checkpoints (gitignored)
+leische_pipeline.ipynb        the whole pipeline (all functions inline)
+tools/build_uyam_export.py    uyam CSVs → the dataset contract
+docs/MODEL_PLAN.md            methodology reference (from uyam)
+docs/METHODOLOGY_REVIEW.md    manuscript vs. pipeline; open decisions
+docs/UYAM_HANDOFF.md          data-side gaps and what to fix in uyam
+results/                      frozen folds + run artifacts (committed)
+data/                         the uyam export + derived contract (gitignored)
+cache/                        embeddings / checkpoints (gitignored)
 ```
 
 The `main` branch keeps the alternative layout (importable `src/leische`
@@ -34,16 +47,41 @@ package + per-stage notebooks + pytest suite).
 
 ## Data
 
-No sync step. The notebook looks for the export in this order:
+uyam ships two flat CSVs into `data/`:
 
-1. `./data/dataset-v1.jsonl` — a copy you downloaded from uyam
-2. `../uyam/data/annotated/` — read directly when uyam is cloned next to this repo
+```
+data/annotated-review.csv     6,650 annotated targets
+data/uyam_export.csv          20,573-row scraped corpus
+```
+
+`tools/build_uyam_export.py` derives the nested dataset contract the notebook
+consumes, and never fabricates a field uyam does not collect:
+
+```bash
+uv run python tools/build_uyam_export.py
+# → data/dataset-v2.jsonl, data/corpus-v2.jsonl, data/dataset_card.json
+```
+
+It drops 1,795 rows whose sarcasm vote never resolved (uyam ran no adjudicator
+pass) and 439 whose language vote never resolved (language is the
+stratification key). Fields uyam does not collect — `labels.cues`,
+`aux.tx_sentiment`, `aux.lid`, `human_gold` — are emitted as `null`, and the
+code paths that need them stay off.
+
+**Conversational context is currently a corpus rebuild, not the snapshot the
+annotators saw** (`context.source == "corpus_rebuild"`, MODEL_PLAN §11.7). The
+notebook prints this warning on every run; it clears itself once uyam exports
+the real snapshot ([handoff H2](docs/UYAM_HANDOFF.md)).
+
+The notebook also still reads a sibling `../uyam/data/annotated/` export if one
+is present.
 
 ## Quickstart
 
 ```bash
-uv sync                        # pinned env (torch 2.6.0+cu124, Python 3.12)
-uv run jupyter lab             # open leische_pipeline.ipynb, run top-to-bottom
+uv sync                                     # pinned env (torch 2.6.0+cu124, Python 3.12)
+uv run python tools/build_uyam_export.py    # build the contract from the CSVs
+uv run jupyter lab                          # open leische_pipeline.ipynb, run top-to-bottom
 ```
 
 Headless re-execution:
@@ -57,18 +95,30 @@ uv run jupyter nbconvert --to notebook --execute --inplace \
 
 - Folds: `StratifiedGroupKFold`, stratified on `sarcastic×language`, **grouped
   by `submission_fullname`**, frozen to `results/folds-v{N}.json` with the
-  dataset identity and refused on mismatch.
+  dataset identity and refused on mismatch. 96.3% of rows share a thread with
+  another annotated row, so this is load-bearing, not cosmetic.
 - Retrieval banks: training-fold rows only, same-thread excluded, rebuilt per
   fold, leakage asserted at build time.
-- Conversational context comes only from the embedded snapshot the annotators
-  saw — never rebuilt from the corpus dump.
-- `keyword_oversampled` rows never enter natural-distribution metrics.
+- Conversational context comes from one source per run, and which source it is
+  is printed every run.
+- `keyword_oversampled` rows never enter natural-distribution metrics (the
+  current export has none — [handoff H9](docs/UYAM_HANDOFF.md)).
+- Aux losses mask rows whose labels uyam never collected rather than training
+  on fabricated values.
 - Thesis architecture is the committed baseline; every §9 upgrade is a config
   flag defaulting to OFF.
 
-## When dataset-v2 lands
+## Readiness gate — current status
 
-1. Drop the new export in `./data/` (or just `git pull` uyam next door).
-2. Set `Config.dataset_version = "v2"` and re-run top-to-bottom — folds
-   re-freeze automatically for the new identity.
-3. Once the §10 gate prints PASS: `Config(smoke=False, ...)` for real runs.
+```
+[PASS] dataset-v2 under sarc-v2           dataset_version=v2, prompt_version=sarc-v2
+[PASS] ≥400 sarcastic positives           403 positives
+[FAIL] gold subset labeled + κ reported   n_gold_items=0, sarcastic κ=None
+[PASS] every language×sarcastic cell ≥10  min cell 58
+[PASS] fold file frozen                   results/folds-v2.json
+```
+
+To clear the last check: label ~300 items in the uyam review tab and report
+human-vs-ensemble Cohen's κ in `dataset_card.json`
+([handoff H1](docs/UYAM_HANDOFF.md)). Then `Config(smoke=False, ...)` for real
+runs.
