@@ -12,12 +12,14 @@
     "use_temp": false,
     "use_ret": false,
     "conv_role_embeddings": true,
-    "temporal_k": 10,
-    "temporal_lambda_init": 0.1,
-    "temporal_lambda_learnable": false,
+    "temporal_k": 5,
+    "temporal_window_hours": 48.0,
+    "temporal_lambda_init": 0.0289,
+    "temporal_lambda_learnable": true,
     "missing_channel": "zeros",
+    "retrieval_encoder": "sentence_transformer",
     "retrieval_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-    "retrieval_k": 5,
+    "retrieval_k": 3,
     "retrieval_prototypes": false,
     "mlp_hidden": 256,
     "dropout": 0.2,
@@ -30,14 +32,19 @@
     "grad_accum": 1,
     "fp16": true,
     "grad_clip": 1.0,
+    "vram_fraction": 0.85,
+    "dataloader_workers": 0,
+    "pin_memory": false,
     "seeds": [
       13
     ],
     "class_weighting": "inverse_freq",
+    "label_source": "adjudicated",
     "max_steps_per_epoch": 8,
     "sample_weighting": false,
     "sample_weights": {
       "unanimous": 1.0,
+      "unanimous_partial": 0.85,
       "majority": 0.9,
       "adjudicator": 0.7,
       "human": 1.0
@@ -57,13 +64,40 @@
     "tune_threshold_on_val": false,
     "n_folds": 5,
     "natural_only_metrics": true,
-    "smoke": true
+    "smoke": true,
+    "save_checkpoint": false
   },
   "dataset_identity": {
     "dataset_version": "v1",
-    "prompt_version": "sarc-v1",
-    "uyam_commit": "69d0affaca157edaf64e617d21e8ae752c9343fa"
+    "prompt_version": "sarc-v2",
+    "uyam_commit": "039c3aa8756f646c8b12d9ef10c13f29260421b7",
+    "n_rows": 15000
   },
-  "leische_commit": "bd3da5ee32703559f0e69fab090e2aa14dc8e9b9",
-  "gate_passed": false
+  "folds_file": "folds-v1-a419a4bc95.json",
+  "leische_commit": "dd5560298ac0ac9609627672dd6b039296a2044a",
+  "gate_passed": true,
+  "claims_validated": false,
+  "label_authority": {
+    "labels_produced_by": "llm_ensemble",
+    "annotators": [
+      "gemma3",
+      "qwen3",
+      "sealion"
+    ],
+    "adjudicator": [
+      "qwen3-32b"
+    ],
+    "prompt_version": "sarc-v2",
+    "uyam_commit": "039c3aa8756f646c8b12d9ef10c13f29260421b7",
+    "sarcastic_fleiss_kappa": 0.3761,
+    "human_gold": {
+      "n_items": 31,
+      "sarcastic_cohen_kappa": -0.1481
+    },
+    "interpretation": "metrics are measured against LLM-ensemble labels; they quantify agreement with the ensemble, not with human judgement, until the gold subset validates the labels"
+  },
+  "wall_clock_sec": 34.8,
+  "peak_vram_gb": 6.24,
+  "torch": "2.9.1+cu128",
+  "gpu": "NVIDIA GeForce RTX 5090 Laptop GPU"
 }
