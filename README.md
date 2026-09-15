@@ -87,7 +87,7 @@ and refuses to train on a corpus rebuild.
 ## Quickstart
 
 ```bash
-uv sync                                      # pinned env (torch 2.6.0+cu124, Python 3.12)
+uv sync                                      # pinned env (torch 2.9.1+cu128, Python 3.12)
 uv run python tools/check_model_contract.py  # architecture checks (seconds, CPU only)
 uv run jupyter lab                           # open leische_pipeline.ipynb, run top-to-bottom
 ```

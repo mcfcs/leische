@@ -20,8 +20,59 @@ or paste §0–§6 directly.
   identical splits or the ablation means nothing.
 - Anything you cannot verify, say so plainly rather than reporting it as done.
 
-Hardware: RTX 4070 Laptop, **8 GB VRAM**. `xlm-roberta-base` in fp16, batch 8–16
-with gradient accumulation. `xlm-roberta-large` does not fit — do not try.
+## 0b · Hardware, and not crashing the machine
+
+**RTX 5090 Laptop, 24 GB VRAM, compute capability 12.0 (sm_120, Blackwell).**
+The model trains on *this* machine — the 8 GB 4070 in older notes is a
+different laptop, and every "does not fit in 8 GB" caveat in `MODEL_PLAN.md`
+is obsolete.
+
+**The environment was re-pinned for this GPU.** `torch 2.6.0+cu124` wheels are
+built only up to sm_90, so on Blackwell they fail at the *first kernel launch*
+with an opaque `no kernel image is available for execution on the device` —
+after the data has already loaded. `pyproject.toml` now pins **`torch 2.9.1` on
+the cu128 index**. Run `uv sync` and let §1 of the notebook confirm it: the
+setup cell checks `torch.cuda.get_arch_list()` against this GPU's arch and
+raises with the exact fix if the wheel is wrong. If you ever change the torch
+pin, keep it `>= 2.7` on cu128 or newer.
+
+### Leave the machine usable
+
+24 GB is comfortable, but this is a **laptop** — the display, the compositor and
+your editor share that VRAM. A process that grabs all of it does not produce a
+clean OOM; it can stall or kill the desktop. Three guards are already wired in,
+and you should keep them on:
+
+| guard | where | what it does |
+|---|---|---|
+| `Config.vram_fraction = 0.85` | applied by `apply_memory_guard(CFG)` | caps the process at ~20 GB, so a spike raises a catchable `torch.OutOfMemoryError` instead of starving the driver |
+| `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` | set in §1 before the first allocation | stops allocator fragmentation causing an OOM that `nvidia-smi` says should not have happened |
+| `dataloader_workers = 0`, `pin_memory = False` | `Config`, used by `make_loaders` | workers fork a copy of `CONV`/`TEMP`/`EMB` per process, and pinned host memory is not swappable — both are system-RAM risks, not VRAM ones |
+
+`cuda_report()` prints peak allocated vs reserved, and `run_cv` calls it at the
+end of every run. **Read that number before you raise the batch size.** Raise
+`batch_size` only while peak stays under ~80% of the capped budget; if you need
+the headroom back, lower `vram_fraction` rather than removing the cap.
+
+If you do hit an OOM: reduce `batch_size` and raise `grad_accum` to keep the
+effective batch, or lower `max_len_target`. Do not disable the cap to make an
+OOM go away — that converts a recoverable error into a machine crash.
+
+Also watch **system RAM**, which no guard covers: `corpus-v1.jsonl` (20,573
+rows), the 15,000-row dataframe, the cached retrieval embeddings and every
+fold's predictions all live in the Python process. If you run conditions in a
+loop inside one kernel, `del` the big intermediates between them.
+
+### Model size
+
+With 24 GB, `xlm-roberta-base` in fp16 runs comfortably at **batch 32–64**
+(start at 32 and check `cuda_report()`), which is a large speed-up over the
+batch-8 defaults those old notes assumed — tune `batch_size` upward early, it
+is the cheapest wall-clock win available.
+
+`xlm-roberta-large` (~560 M params) now **does** fit and is worth one comparison
+run once the base model is measured — but it is a §9.6 encoder-ablation row, not
+the thesis baseline. Keep XLM-R base as the reported architecture.
 
 ---
 
@@ -67,8 +118,9 @@ before anything else.
 
 Then the first real run. **Budget your compute deliberately** — the full model
 pushes ~9 encoder passes per example (target + conv items + temporal items +
-2×k retrieval exemplars), so the 8×5×3 grid at full settings is far more than a
-laptop 4070 will finish in a sensible time.
+2×k retrieval exemplars), so the 8×5×3 grid is still substantial even on 24 GB.
+The constraint here is wall-clock, not VRAM: raise `batch_size` first (see §0b),
+then plan the grid.
 
 Staged plan:
 
@@ -130,7 +182,7 @@ expected payoff on this data:
 
 - decision threshold (see above — do this first, it is free);
 - `lr_encoder` ∈ {1e-5, 2e-5, 3e-5}, `lr_heads` ∈ {1e-4, 3e-4};
-- `batch_size` × `grad_accum` to a real batch of 16–32;
+- `batch_size` (24 GB allows 32–64 for the base encoder) × `grad_accum`;
 - `class_weighting` vs `focal_loss` (γ=2) vs `weighted_sampler`
   (`target_pos_frac` 0.25–0.30) — the §9.2 flags already exist;
 - `d_model` ∈ {256, 384}; `dropout` ∈ {0.1, 0.2, 0.3};
@@ -226,5 +278,7 @@ rather than following it off a cliff.
 | Claiming a small ablation gap | check `plot_fold_spread` and the bootstrap CI first |
 | Reading the temporal condition as "temporal context does not help" | only 36.7% of rows have ≥1 temporal item; it is data availability |
 | Editing the fold file | every condition must share splits |
-| `xlm-roberta-large` | does not fit in 8 GB |
+| Disabling `vram_fraction` to dodge an OOM | turns a catchable error into a desktop crash on a laptop GPU |
+| Assuming the batch-8 defaults | they were written for an 8 GB machine; 24 GB wants 32–64 |
+| A torch wheel without sm_120 | fails at the first kernel, long after load; §1 preflights it |
 | Committing checkpoints or post text | `data/`, `cache/` and `*.pt` are gitignored — keep it that way |

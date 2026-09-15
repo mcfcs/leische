@@ -90,15 +90,26 @@ leische/
   results/                   # per-run CSV + config snapshot + dataset_version
 ```
 
-Environment: Python 3.11+, `torch` (cu124 build on the 8 GB machine),
+Environment: Python 3.11+, `torch` (cu128 build — see the hardware note below),
 `transformers`, `datasets`, `scikit-learn`, `sentence-transformers` (retrieval),
 `pandas`, `matplotlib`. Pin exact versions in `requirements.txt` on day one;
 record `dataset_version` + `prompt_version` + git commit in every results file.
 
-**Hardware reality (8 GB VRAM):** `xlm-roberta-base` (~279 M params) trains in
-fp16 with batch 8–16 + gradient accumulation. `xlm-roberta-large` does NOT fit
-comfortably — treat large as a stretch goal via LoRA (§9.4) or the 24 GB box
-if it can take a CUDA workload alongside Ollama duty.
+**Hardware reality — SUPERSEDED.** This paragraph was written for an 8 GB
+RTX 4070 laptop. Training now runs on an **RTX 5090 Laptop, 24 GB VRAM,
+compute capability 12.0 (sm_120)**. Two consequences:
+
+- `torch` must be **>= 2.7 on the cu128 index**; the cu124 wheels this document
+  originally assumed are built only to sm_90 and fail at the first kernel launch
+  on Blackwell. `pyproject.toml` pins `torch 2.9.1+cu128`, and §1 of the notebook
+  preflights the arch list.
+- `xlm-roberta-base` runs at **batch 32–64** in fp16, not 8–16, and
+  `xlm-roberta-large` now fits — as a §9.6 encoder-ablation row, not as the
+  thesis baseline.
+
+It is a laptop, so leave VRAM headroom: `Config.vram_fraction` (default 0.85)
+caps the process so a spike raises a catchable OOM rather than starving the
+display driver. See `docs/FABILE_BRIEF.md` §0b.
 
 ---
 
@@ -291,7 +302,7 @@ Shared representation, small heads, summed losses (aux weights ~0.2–0.3):
 ### 9.4 Small-data fine-tuning hygiene
 Freeze embeddings + bottom 4–6 XLM-R layers first (unfreeze-all as ablation);
 layer-wise lr decay (0.9); **LoRA/adapters** (r=8 on attention) as the
-low-VRAM path — also how `xlm-roberta-large` becomes feasible on 8 GB.
+low-VRAM path (less critical on the 24 GB box, where large fits outright).
 R-Drop or simple dropout-ensembling if variance across seeds is ugly.
 
 ### 9.5 Retrieval upgrades
