@@ -87,3 +87,96 @@ batch 32 for the full model sits above the brief's 80%-of-cap line with no
 margin for a long batch, and batch 64 buys the baseline nothing. Expected
 cost: full model ≈ 3 min/epoch → ~15–25 min per fold with early stopping;
 baseline ≈ 0.7 min/epoch. Stage A projected at ~2–2.5 h.
+
+---
+
+## 2026-09-16 · Stage A — conditions 1 (baseline) and 8 (full), 5 folds × seed 13
+
+Config: `real_cfg()` — thesis defaults (xlm-roberta-base, mean pooling, d=256,
+lr 2e-5 / 1e-4, warmup 10%, ≤10 epochs, patience 3, fp16, inverse-frequency
+class weights per fold, retrieval k=3 / MiniLM, temporal k=5 / 48 h / learnable
+λ), batch 16 × accum 2. Runs: `results/ablation-1_baseline/`,
+`results/ablation-8_full/`; log `results/logs/stage-A.log`; wall clock 22.6 min
+(baseline) + 113.8 min (full); peak VRAM 6.6 / 13.3 GB. Checkpoints for fold 0
+under `cache/checkpoints/` (not committed).
+
+**All numbers are agreement with the LLM-ensemble labels, not with human judgement.**
+
+### RQ1 headline (test folds, mean ± std over 5 folds)
+
+| condition | F1 @0.5 | F1 @val-thr | precision @0.5 | recall @0.5 | AUPRC | AUROC | ECE raw / temp-scaled |
+|---|---|---|---|---|---|---|---|
+| 1_baseline | **0.353 ± 0.034** | 0.338 ± 0.045 | 0.298 | 0.497 | 0.308 ± 0.049 | 0.775 ± 0.029 | 0.177 / 0.165 |
+| 8_full | **0.356 ± 0.014** | 0.349 ± 0.017 | 0.317 | 0.433 | 0.312 ± 0.018 | 0.776 ± 0.015 | 0.125 / 0.111 |
+
+Significance, condition 8 − condition 1 (`results/significance.csv`,
+`figures/bootstrap.png`): ΔF1 **+0.013**, paired-bootstrap 95% CI
+**[−0.004, +0.030]**, p = 0.13; approximate randomization p = 0.13. At the
+val-tuned decision ΔF1 +0.011, CI [−0.008, +0.031], p = 0.25. McNemar on the 0.5
+decision gives p < 0.001 but it counts *correctness*, and at a 10.7% base rate it
+mainly rewards the model that flags fewer rows (full 2,293 vs baseline 3,034
+positives predicted, 1,601 true) — not an F1 statement.
+
+**Conclusion: on the headline pair the context model does not beat the
+target-only baseline.** The gap is inside the fold spread (`figures/fold-spread-f1_tuned.png`);
+what the full model does change is the *shape* of the errors — higher precision,
+lower recall, a tighter fold spread (std 0.014 vs 0.034) and better calibration
+(ECE 0.125 vs 0.177).
+
+### What the diagnostics say (brief §3, in order)
+
+1. **Threshold** (`figures/threshold-sweep-*.png`) — the expected free win did
+   not materialise. Per-fold validation-chosen thresholds ranged 0.45–0.87 and
+   *lowered* mean test F1 (−0.014 baseline, −0.007 full); the pooled test sweep
+   peaks at 0.54 / 0.47, i.e. at 0.5. With inverse-frequency class weights the
+   0.5 decision is already near F1-optimal, and a threshold picked on 104–135
+   validation positives is noise. **0.5 stays the reported decision**; the
+   val-tuned columns are kept as an honest row.
+2. **Training curves** (`figures/training-curves-condition.png`) — both learn;
+   best epochs 1–7 (baseline) and 3–7 (full). Baseline fold 2 collapsed to
+   all-negative at epoch 1 and never recovered (early stopping restored epoch 1:
+   F1 0.295, AUPRC 0.230, fitted temperature pinned at the grid max 8.0). That is
+   optimisation instability at lr 2e-5 with a 4.6× positive weight, and it is
+   most of the baseline's fold variance. Val F1 runs ~0.04 above test for the
+   full model (0.395 vs 0.356).
+3. **Fold spread** — per-fold F1@0.5: baseline 0.369 / 0.371 / 0.295 / 0.379 /
+   0.349; full 0.363 / 0.350 / 0.369 / 0.361 / 0.334. The full model is more
+   consistent; neither is better fold by fold (3–2).
+4. **Calibration** (`figures/calibration-*.png`) — full model ECE 0.125 raw,
+   0.111 after temperature scaling (T ≈ 1.0–3.4 per fold). The full model flags
+   15.3% of rows at 0.5 (13.1% at the val threshold) against a 10.7% base rate;
+   the baseline flags 20.2%. Usable for RQ3 stage 2, with the caveat that ~half
+   of the flags are false positives (precision 0.32).
+5. **Gates** (`figures/gates.png`) — the M1 gate now varies per instance:
+   conv 0.16 ± 0.11 (range 0.01–0.54), temp 0.33 ± 0.09, ret 0.51 ± 0.09.
+   Retrieval carries half the weight on average; conversational context is
+   systematically the least trusted channel. The means barely move by language
+   (conv 0.15–0.18) or record type, and — notably — gate_conv does **not** rise
+   with the number of conversational items (0.155 with none, 0.149 with 3+), so
+   the variation is not an availability signal. It is higher on true positives
+   (0.21 vs 0.16) and on adjudicated rows (0.18). Per-instance gating is
+   mechanically supported; a per-instance *benefit* is not.
+6. **Slices** (`figures/slices-*.png`, F1@0.5 full / baseline) — language:
+   Taglish 0.46 / 0.45, English 0.34 / 0.34, Tagalog 0.26 / 0.25. resolved_by:
+   majority 0.46 / 0.46, unanimous 0.40 / 0.34, **adjudicator 0.28 / 0.26**.
+   sarcasm votes: 3-0 rows 0.43, 2-1 rows 0.26. Label noise dominates: the
+   rows where the annotators disagreed (4,544 rows, 711 positives) are close
+   to unlearnable for either model, and they hold 44% of the positives.
+   Submissions have 4 positives — the slice is not interpretable.
+
+Other observations: the two models agree on 84.6% of decisions with a
+probability correlation of only 0.55 — different predictions, same F1. No
+`keyword_oversampled` rows exist, so natural-only and all-rows metrics coincide.
+The retrieval-embedding cache used by every stage was encoded on CPU by the
+demo build and reused by the notebook (same MiniLM weights; identical across
+stages).
+
+### Decisions
+
+- Stage B, C, D and the §4 rows (annotator-majority label, aux cue heads,
+  label-quality weighting) queued as approved, in the order B → C → E → D.
+- Committed baseline unchanged. A lower-encoder-LR / layer-wise-decay variant
+  is the tuning row most likely to matter (the fold-2 collapse), to be added as
+  a separate row after the approved stages.
+- The RQ3 evaluation runs on the fold-0 full-model checkpoint with its
+  validation-chosen threshold (0.65) — see the next entry.
