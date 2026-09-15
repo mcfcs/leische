@@ -28,6 +28,8 @@ Read before running:
   Chapter III vs. this pipeline; the five departures (M1–M5) and why.
 - **[docs/UYAM_HANDOFF.md](docs/UYAM_HANDOFF.md)** — what uyam still owes the
   model repo, ordered by how much it blocks.
+- **[docs/FABILE_BRIEF.md](docs/FABILE_BRIEF.md)** — the brief for the training
+  run: what to check, what to tune, what to look at, and the demo spec.
 
 ## Layout — one notebook
 
@@ -35,13 +37,17 @@ The entire pipeline lives in **[leische_pipeline.ipynb](leische_pipeline.ipynb)*
 environment checks → data loading + contract validation + readiness gate → EDA
 → frozen thread-grouped folds → the three context channels with leakage
 assertions → the 5-stage XLM-R model behind RQ2 ablation flags → training
-harness → the two §10 smoke tests (overfit-16, tiny-settings 5-fold dry run) →
-the 8×5 ablation matrix with significance tests → the RQ3 two-stage sentiment
-evaluation.
+harness → **plot helpers (§8b)** → the two §10 smoke tests (overfit-16,
+tiny-settings 5-fold dry run) → the 8×5 ablation matrix with significance tests
+→ specification variants (§12b) → the RQ3 two-stage sentiment evaluation.
+
+Every figure is written to `results/figures/` as it is drawn, so the manuscript
+can cite them directly.
 
 ```
 leische_pipeline.ipynb        the whole pipeline (all functions inline)
 tools/check_model_contract.py architecture checks (no GPU, no model download)
+docs/FABILE_BRIEF.md          brief for the training / tuning / demo run
 tools/gold_disagreements.py   every human-vs-ensemble disagreement, in full
 tools/build_uyam_export.py    CSV-era adapter (superseded by the uyam export)
 docs/ANNOTATION_PROVENANCE.md how the labels were produced; the gold finding
@@ -50,6 +56,7 @@ docs/MODEL_PLAN.md            methodology reference (from uyam)
 docs/METHODOLOGY_REVIEW.md    manuscript vs. pipeline; the M1–M5 decisions
 docs/UYAM_HANDOFF.md          data-side gaps and what to fix in uyam
 results/                      frozen folds + run artifacts (committed)
+results/figures/              every plot §8b draws, written as it runs
 data/                         the uyam export + derived contract (gitignored)
 cache/                        embeddings / checkpoints (gitignored)
 ```
