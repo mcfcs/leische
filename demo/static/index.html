@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sarcasm in context</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<p class="honesty" id="honesty" role="note">
+  Labels are LLM-ensemble generated (gemma3, qwen3, sealion; qwen3-32b adjudicator).
+  Human-validated on 31 items so far, Cohen's &kappa; = &minus;0.148.
+  Probabilities measure agreement with the ensemble, not human judgement.
+</p>
+
+<div class="untrained" id="untrained" hidden>
+  <strong>Untrained weights &mdash; no checkpoint found.</strong>
+  <span id="untrained-detail">Every number on this page comes from a randomly initialised model.</span>
+</div>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Sarcasm in context</h1>
+    <p class="lede">Type a Taglish, Tagalog or English comment. Then give the model the thread
+      around it and watch the probability move.</p>
+    <dl class="facts" id="facts"></dl>
+  </header>
+
+  <main class="layout">
+    <div class="column">
+
+      <!-- 1 + 3 · the instrument -->
+      <section class="console" aria-labelledby="console-h">
+        <h2 class="sr-only" id="console-h">Prediction</h2>
+
+        <div class="console-input">
+          <label class="field-label" for="target">Comment to score</label>
+          <textarea id="target" class="post" rows="3" maxlength="2000"
+            placeholder="Grabe, ang bilis mo pala mag-reply. Two weeks lang naman."></textarea>
+          <div class="input-foot">
+            <span class="counter" id="counter">0 / 2000</span>
+            <span class="hint">Ctrl + Enter to score</span>
+            <button type="button" id="run" class="run">Score this comment</button>
+          </div>
+        </div>
+
+        <div class="readout" id="readout" aria-live="polite">
+          <p class="idle" id="idle">Nothing scored yet.</p>
+
+          <div id="result" hidden>
+            <p class="figure">
+              <span class="pct" id="pct">0.0</span><span class="pct-unit">%</span>
+              <span class="verdict" id="verdict">sarcastic</span>
+            </p>
+            <p class="figure-sub" id="figure-sub">calibrated probability</p>
+
+            <div class="track" id="track">
+              <div class="track-rail"></div>
+              <div class="track-fill" id="fill"></div>
+              <div class="track-ghost" id="ghost" hidden></div>
+              <div class="track-mark" id="mark"><span class="track-mark-label">threshold</span></div>
+            </div>
+            <p class="delta" id="delta"></p>
+
+            <div class="sentiment" id="sentiment">
+              <div class="sentiment-pair" id="sentiment-pair" hidden>
+                <div><span class="field-label">Literal reading</span><strong id="lit">&mdash;</strong></div>
+                <div class="arrow" aria-hidden="true">&rarr;</div>
+                <div><span class="field-label">Intended reading</span><strong id="int">&mdash;</strong></div>
+              </div>
+              <p class="muted" id="sentiment-missing" hidden>Sentiment heads not trained yet.</p>
+            </div>
+
+            <div class="gates">
+              <h3 class="field-label">Gate weights</h3>
+              <p class="muted">The model&rsquo;s per-instance weight on each context source for this input.
+                They always sum to one.</p>
+              <ul class="gate-list">
+                <li class="gate gate-conv">
+                  <span class="gate-name">conversational</span>
+                  <span class="gate-bar"><i id="gate-conv"></i></span>
+                  <span class="gate-val" id="gate-conv-val">0.00</span>
+                  <span class="gate-items" id="gate-conv-items"></span>
+                </li>
+                <li class="gate gate-temp">
+                  <span class="gate-name">temporal</span>
+                  <span class="gate-bar"><i id="gate-temp"></i></span>
+                  <span class="gate-val" id="gate-temp-val">0.00</span>
+                  <span class="gate-items" id="gate-temp-items"></span>
+                </li>
+                <li class="gate gate-ret">
+                  <span class="gate-name">retrieval</span>
+                  <span class="gate-bar"><i id="gate-ret"></i></span>
+                  <span class="gate-val" id="gate-ret-val">0.00</span>
+                  <span class="gate-items" id="gate-ret-items"></span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <p class="error" id="error" hidden></p>
+          <p class="notes" id="notes" hidden></p>
+        </div>
+      </section>
+
+      <!-- 2 · context editor -->
+      <section class="band" aria-labelledby="ctx-h">
+        <div class="band-head">
+          <h2 id="ctx-h">Context</h2>
+          <div class="toggles" role="group" aria-label="Context channels">
+            <button type="button" class="toggle t-conv" id="t-conv" aria-pressed="true">conversational</button>
+            <button type="button" class="toggle t-temp" id="t-temp" aria-pressed="true">temporal</button>
+            <button type="button" class="toggle t-ret" id="t-ret" aria-pressed="true">retrieval</button>
+          </div>
+        </div>
+        <p class="muted band-note">Switching a channel off gives it <em>no items</em>. The channel stays in the
+          architecture and still receives a gate weight &mdash; the same thing that happens on a real row
+          that has no thread around it. Every edit re-scores the comment.</p>
+
+        <div class="channels">
+          <div class="channel ch-conv" id="ch-conv">
+            <h3>Conversation</h3>
+            <label class="field-label" for="sub-title">Parent post title</label>
+            <input id="sub-title" class="post" type="text" maxlength="300" placeholder="Any opinions about&hellip;">
+            <label class="field-label" for="sub-body">Parent post body</label>
+            <textarea id="sub-body" class="post" rows="2" maxlength="2000"></textarea>
+
+            <div class="sub-list">
+              <div class="sub-head">
+                <span class="field-label">Parent comments</span>
+                <button type="button" class="add" data-add="parents">Add a parent comment</button>
+              </div>
+              <ul id="parents" class="turns"></ul>
+            </div>
+
+            <div class="sub-list">
+              <div class="sub-head">
+                <span class="field-label">Replies</span>
+                <button type="button" class="add" data-add="replies">Add a reply</button>
+              </div>
+              <ul id="replies" class="turns"></ul>
+            </div>
+            <p class="off-note">This channel is switched off. The model is seeing an empty conversation.</p>
+          </div>
+
+          <div class="channel ch-temp" id="ch-temp">
+            <h3>Earlier posts by this author</h3>
+            <div class="sub-head">
+              <span class="field-label" id="temp-cap">Up to 5, within 48 hours before the comment</span>
+              <button type="button" class="add" data-add="history">Add an earlier post</button>
+            </div>
+            <ul id="history" class="turns"></ul>
+            <p class="off-note">This channel is switched off. The model is seeing no author history.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 · exemplars -->
+      <section class="band" aria-labelledby="ex-h">
+        <div class="band-head">
+          <h2 id="ex-h">Nearest training examples</h2>
+        </div>
+        <p class="muted band-note" id="bank-note">Closest rows from each bank by sentence-embedding cosine
+          similarity. Banks are drawn from the training fold only.</p>
+        <div class="exemplars">
+          <div>
+            <h3 class="col-h col-sarc">labelled sarcastic</h3>
+            <ol class="ex-list" id="ex-sarc"></ol>
+          </div>
+          <div>
+            <h3 class="col-h col-non">labelled not sarcastic</h3>
+            <ol class="ex-list" id="ex-non"></ol>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 5 · preloaded examples -->
+    <aside class="rail" aria-labelledby="ex2-h">
+      <h2 id="ex2-h">From the corpus</h2>
+      <p class="muted">Clicking one fills the comment box and the whole context editor, then scores it.</p>
+      <div id="example-groups"></div>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <p id="foot-authority"></p>
+    <p>Corpus text is read from <code>data/</code> at runtime and is never written anywhere else.
+      The model code is executed straight out of <code>leische_pipeline.ipynb</code>.</p>
+  </footer>
+</div>
+
+<template id="tpl-turn">
+  <li class="turn">
+    <input type="text" class="post turn-text" maxlength="2000" placeholder="What they said">
+    <label class="submitter"><input type="checkbox" class="turn-op"> OP</label>
+    <button type="button" class="drop" aria-label="Remove">Remove</button>
+  </li>
+</template>
+
+<template id="tpl-hist">
+  <li class="turn">
+    <input type="text" class="post turn-text" maxlength="2000" placeholder="An earlier post by the same author">
+    <label class="hours">
+      <input type="number" class="turn-hours" min="0.1" max="48" step="0.5" value="4"> h ago
+    </label>
+    <button type="button" class="drop" aria-label="Remove">Remove</button>
+  </li>
+</template>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

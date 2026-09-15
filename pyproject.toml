@@ -21,6 +21,10 @@ dependencies = [
     "nbformat>=5.10",
 ]
 
+[project.optional-dependencies]
+# demo/ only — the pipeline itself never imports these (FABILE_BRIEF §5)
+demo = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+
 [tool.uv]
 # dependency-only project: the whole pipeline lives in leische_pipeline.ipynb
 package = false

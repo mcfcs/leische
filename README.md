@@ -46,6 +46,7 @@ can cite them directly.
 
 ```
 leische_pipeline.ipynb        the whole pipeline (all functions inline)
+demo/                         the demo website (FastAPI + static page)
 tools/check_model_contract.py architecture checks (no GPU, no model download)
 docs/FABILE_BRIEF.md          brief for the training / tuning / demo run
 tools/gold_disagreements.py   every human-vs-ensemble disagreement, in full
@@ -98,6 +99,27 @@ Headless re-execution:
 uv run jupyter nbconvert --to notebook --execute --inplace \
     leische_pipeline.ipynb --ExecutePreprocessor.timeout=-1
 ```
+
+## Demo
+
+A page that shows what the model *does* on one comment — probability and verdict,
+the literal and intended sentiment, the three per-instance gate weights, the
+retrieved exemplars, and the prediction moving as conversational / temporal /
+retrieval context is switched on and off.
+
+```bash
+uv sync --extra demo
+uv run --extra demo uvicorn demo.server:app --host 127.0.0.1 --port 8000
+```
+
+Then open <http://127.0.0.1:8000>. Add `LEISCHE_DEMO_DEVICE=cpu` while the GPU is
+training. It runs without a checkpoint — untrained weights, clearly banner-flagged
+— so the page can be reviewed before training finishes. `LEISCHE_CHECKPOINT`
+points it at a different `.pt`. See [demo/README.md](demo/README.md).
+
+The demo execs the Config, model and collator cells straight out of the notebook,
+so it cannot drift from the trained architecture. No checkpoint and no post text
+ever enters git: it reads `data/` and `cache/` at runtime only.
 
 ## Hard rules encoded in the notebook (runtime assertions)
 
