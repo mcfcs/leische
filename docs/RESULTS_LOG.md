@@ -180,3 +180,40 @@ stages).
   a separate row after the approved stages.
 - The RQ3 evaluation runs on the fold-0 full-model checkpoint with its
   validation-chosen threshold (0.65) — see the next entry.
+
+---
+
+## 2026-09-16 · RQ3 on the stage-A fold-0 checkpoint (§13)
+
+Sarcasm model: condition 8, fold 0, seed 13, validation-chosen threshold 0.65,
+temperature 1.41 → 351 of 3,001 fold-0 test rows flagged (precision 0.35,
+recall 0.38, flag ECE 0.112). Heads: logistic regression fit on fold-0
+**training** rows only — stage 1 on the target-only embedding with
+`literal_sentiment`, stage 2 on `[t ; c_fused]` with `intended_sentiment`.
+Ground truth `intended_sentiment` (κ 0.481 vs the human on the gold subset).
+Output `results/rq3-fold0.csv`, `figures/rq3-macro_f1.png`.
+
+| run (fold-0 test, macro-F1 / accuracy) | overall (n=3,001) | gold-sarcastic (321) | sarcastic ∧ literal≠intended (208) |
+|---|---|---|---|
+| stage 1 external (`aux.tx_sentiment`, cardiffnlp) | 0.625 / 0.631 | 0.243 / 0.486 | 0.198 / 0.341 |
+| stage 1 only (ours, literal head) | 0.597 / 0.602 | 0.182 / 0.299 | 0.129 / 0.173 |
+| **two-stage** (stage 2 on flagged rows) | 0.604 / 0.610 | 0.248 / 0.477 | **0.209 / 0.351** |
+| two-stage, oracle flag (upper bound) | 0.619 / 0.628 | 0.254 / 0.536 | 0.216 / 0.404 |
+| stage 2 everywhere (no flag) | 0.612 / 0.618 | 0.254 / 0.536 | 0.216 / 0.404 |
+
+Reading, honestly:
+
+- The thesis's claim holds in direction: re-reading flagged rows with the
+  intended-sentiment head doubles accuracy on the slice that matters
+  (sarcastic ∧ literal≠intended: 0.17 → 0.35; 0.40 with a perfect flag) at a
+  cost of 0.01 on non-sarcastic rows.
+- But the flag is not what carries it. Applying the stage-2 head to *every*
+  row scores higher overall (0.612 vs 0.604) and equals the oracle on the
+  sarcastic slice — the gain comes from training on `intended_sentiment`,
+  not from conditioning on the sarcasm decision. With a 0.35-precision flag,
+  gating stage 2 loses more on the false positives than it protects.
+- Our stage-1 head (logistic regression on a 256-d frozen projection) is
+  weaker than the shipped external sentiment model on every slice; the
+  external model is the fairer stage-1 baseline. A "external stage 1 + our
+  stage 2 on flagged rows" variant was added to §13 for the next run.
+- Tagalog is the weakest language for sentiment as well (0.55 macro-F1).
