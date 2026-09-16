@@ -314,3 +314,41 @@ p = 0.25. Per-fold means over seeds — baseline 0.360 / 0.377 / 0.353 / 0.377 /
   randomization / McNemar over all available seeds at the end of the chain
   and writes `results/significance.csv`; the pooled-prediction bootstrap
   above is the same test run from the CSVs.
+
+---
+
+## 2026-09-16 · Stage C2 — seeds 42 and 7 for condition 5 (conv + temp)
+
+Runs `results/ablation-5_conv_temp-seed{42,7}/`, 62 min each; same log.
+**Agreement with the LLM-ensemble labels, not human judgement.**
+
+| condition | seed 13 | seed 42 | seed 7 | **pooled F1 @0.5 (15 runs)** | P / R @0.5 | AUPRC | AUROC | ECE |
+|---|---|---|---|---|---|---|---|---|
+| 1_baseline | 0.353 ± 0.034 | 0.369 ± 0.012 | 0.382 ± 0.021 | 0.368 ± 0.026 | 0.31 / 0.49 | 0.316 ± 0.031 | 0.786 | 0.148 |
+| 5_conv_temp | 0.378 ± 0.016 | 0.368 ± 0.027 | 0.364 ± 0.033 | **0.370 ± 0.025** | 0.33 / 0.45 | **0.330 ± 0.021** | 0.789 | 0.116 |
+| 8_full | 0.356 ± 0.014 | 0.357 ± 0.030 | 0.353 ± 0.031 | 0.355 ± 0.024 | 0.33 / 0.42 | 0.312 ± 0.015 | 0.778 | 0.115 |
+
+Paired over 15 (fold, seed) runs, conv+temp − baseline: **ΔF1 = +0.002 ± 0.039,
+7 wins of 15**, paired t-test p = 0.86; pooled paired bootstrap Δ = +0.009,
+95% CI [−0.001, +0.019], p = 0.07. AUPRC +0.014 is the only metric where the
+edge survives seeds, and it is small.
+
+### Reading
+
+- **The stage-B "conv+temp is the best model" result was a seed-13 artefact**
+  — a strong seed for the context model against the baseline's weakest seed.
+  With 15 runs each, conditions 1 and 5 are indistinguishable on F1, and
+  condition 8 is a point below both.
+- The stable pattern across everything run so far: context models are **better
+  calibrated** (ECE 0.115–0.116 vs 0.148) and trade recall for precision; they
+  are not more accurate against these labels. Per-instance gating works
+  mechanically (gate std ≈ 0.1) but buys nothing on F1.
+- Conclusion for the manuscript, as the data stands: RQ1 is negative (no
+  significant gain from context), RQ2 shows no channel or combination that
+  beats the target-only model beyond seed noise, with retrieval the weakest
+  addition. The label-noise ceiling (F1 0.26–0.29 on adjudicated rows for every
+  condition, 0.43+ on unanimous rows) is the dominant effect in the data and
+  should be reported ahead of any architecture comparison.
+- Stage E (annotator-majority label; aux cue heads; label-quality weighting)
+  is running: the majority-label rows are the test of whether these
+  conclusions hinge on the adjudicator.
