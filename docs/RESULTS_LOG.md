@@ -217,3 +217,61 @@ Reading, honestly:
   external model is the fairer stage-1 baseline. A "external stage 1 + our
   stage 2 on flagged rows" variant was added to §13 for the next run.
 - Tagalog is the weakest language for sentiment as well (0.55 macro-F1).
+
+---
+
+## 2026-09-16 · Stage B — the remaining six RQ2 conditions, 5 folds × seed 13
+
+Same `real_cfg()` as stage A. Runs `results/ablation-{2_conv,3_temp,4_ret,5_conv_temp,6_conv_ret,7_temp_ret}/`;
+log `results/logs/stage-BCDE.log`; wall clock 50 / 40 / 76 / 61 / 105 / 98 min;
+peak VRAM 7.9–12.6 GB. **Agreement with the LLM-ensemble labels, not human judgement.**
+
+### RQ2 matrix (test folds, mean ± std over 5 folds, seed 13)
+
+| condition | conv | temp | ret | F1 @0.5 | F1 @val-thr | P / R @0.5 | AUPRC | AUROC | ECE | ΔF1 vs 1 (paired bootstrap, 0.5) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1_baseline | – | – | – | 0.353 ± 0.034 | 0.338 ± 0.044 | 0.30 / 0.50 | 0.308 ± 0.049 | 0.775 | 0.177 | — |
+| 2_conv | ✓ | – | – | 0.355 ± 0.023 | 0.362 ± 0.019 | 0.31 / 0.48 | 0.327 ± 0.010 | 0.787 | 0.151 | +0.017 [−0.000, +0.032] p=0.06 |
+| 3_temp | – | ✓ | – | 0.356 ± 0.043 | 0.355 ± 0.045 | 0.32 / 0.45 | 0.316 ± 0.012 | 0.784 | 0.131 | +0.019 [+0.005, +0.035] p=0.008 |
+| 4_ret | – | – | ✓ | 0.350 ± 0.032 | 0.356 ± 0.029 | 0.33 / 0.41 | 0.316 ± 0.025 | 0.776 | 0.115 | +0.012 [−0.006, +0.031] p=0.20 |
+| **5_conv_temp** | ✓ | ✓ | – | **0.378 ± 0.016** | 0.372 ± 0.016 | 0.32 / 0.50 | **0.334 ± 0.018** | **0.792** | 0.129 | **+0.036 [+0.021, +0.052] p<0.001** |
+| 6_conv_ret | ✓ | – | ✓ | 0.355 ± 0.035 | 0.372 ± 0.019 | 0.34 / 0.43 | 0.320 ± 0.015 | 0.776 | 0.131 | +0.019 [+0.002, +0.037] p=0.04 |
+| 7_temp_ret | – | ✓ | ✓ | 0.357 ± 0.023 | 0.358 ± 0.022 | 0.32 / 0.42 | 0.303 ± 0.020 | 0.776 | 0.118 | +0.015 [−0.004, +0.034] p=0.11 |
+| 8_full | ✓ | ✓ | ✓ | 0.355 ± 0.014 | 0.349 ± 0.017 | 0.32 / 0.43 | 0.312 ± 0.018 | 0.776 | 0.125 | +0.013 [−0.003, +0.030] p=0.11 |
+
+Per-fold F1@0.5 (folds 0–4): baseline 0.369 0.371 **0.295** 0.379 0.349 ·
+conv+temp 0.353 0.377 0.388 0.375 0.395 · full 0.363 0.350 0.369 0.361 0.334.
+Bootstraps are on the pooled 15,000 seed-13 test predictions
+(`results/significance.csv` will carry the notebook's own version once stage C
+finishes); figures `ablation-f1.png`, `ablation-auprc.png`, `ablation-recall_tuned.png`.
+
+### Reading
+
+- **Every context condition is at or above the baseline** on F1, AUPRC and
+  AUROC, and every one is better calibrated (ECE 0.115–0.151 vs 0.177).
+- **Conversational + temporal (condition 5) is the best model**, not the
+  full model: +0.036 F1 and +0.026 AUPRC over the baseline, the tightest fold
+  spread of the matrix, and the only condition whose pooled CI clears zero
+  comfortably. Adding retrieval to it (→ condition 8) gives the gain back.
+- **Retrieval does not help.** The four retrieval conditions sit at
+  0.350–0.357, retrieval-only is the weakest row, and yet the 3-channel gate
+  puts 0.51 of its weight on retrieval (0.69 / 0.67 in the two-channel pairs
+  with conv / temp). The MiniLM top-3 neighbours are topically similar rows,
+  not pragmatically similar ones, and the gate trusts them more than they
+  deserve. Stage D (k=5, k=10, XLM-R `[CLS]`) is the direct test.
+- **Caveat that must travel with the table:** the baseline's fold-2 collapse
+  (0.295) inflates every gain. Excluding fold 2, baseline vs conv+temp is
+  0.367 vs 0.375 (+0.008), and conv+temp wins only 3 of 5 folds outright
+  (folds 1, 2, 4). Stage C adds seeds 42 and 7 for conditions 1 and 8, and a
+  new stage C2 does the same for condition 5, so the comparison can be made on
+  15 runs each before anything is called a result.
+- Temporal context on its own (condition 3) is the single channel with the
+  clearest effect (+0.019, p=0.008) despite being present on only 36.7% of
+  rows — consistent with the brief's warning that the temporal condition
+  measures data availability; more history per author would be the cheapest
+  lever.
+- Slices (F1@0.5): Taglish gains most from context (0.446 → 0.513 for
+  conv+temp); Tagalog stays at 0.25–0.27 for every condition; English 0.31–0.35.
+  Unanimous rows gain most (0.337 → 0.436 for conv+temp); adjudicated rows
+  stay at 0.26–0.29 for all eight — label noise on the adjudicated 33% caps
+  every condition alike.
