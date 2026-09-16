@@ -275,3 +275,42 @@ finishes); figures `ablation-f1.png`, `ablation-auprc.png`, `ablation-recall_tun
   Unanimous rows gain most (0.337 → 0.436 for conv+temp); adjudicated rows
   stay at 0.26–0.29 for all eight — label noise on the adjudicated 33% caps
   every condition alike.
+
+---
+
+## 2026-09-16 · Stage C — seeds 42 and 7 on the headline pair (15 runs each)
+
+Runs `results/ablation-{1_baseline,8_full}-seed{42,7}/`; log
+`results/logs/stage-C-C2-E-D.log`; 26 + 117 + 27 + 117 min. Same config as
+stage A. **Agreement with the LLM-ensemble labels, not human judgement.**
+
+| condition | seed 13 | seed 42 | seed 7 | **pooled F1 @0.5 (15 runs)** | P / R @0.5 | AUPRC | AUROC | ECE |
+|---|---|---|---|---|---|---|---|---|
+| 1_baseline | 0.353 ± 0.034 | 0.369 ± 0.012 | 0.382 ± 0.021 | **0.368 ± 0.026** | 0.31 / 0.49 | 0.316 ± 0.031 | 0.786 | 0.148 |
+| 8_full | 0.356 ± 0.014 | 0.357 ± 0.030 | 0.353 ± 0.031 | **0.355 ± 0.024** | 0.33 / 0.42 | 0.312 ± 0.015 | 0.778 | 0.115 |
+
+Paired over the 15 (fold, seed) runs: **ΔF1 (full − baseline) = −0.013 ± 0.036,
+full wins 4 of 15**, paired t-test p = 0.19, Wilcoxon p = 0.19. Pooled paired
+bootstrap over the 45,000 test predictions: Δ = −0.006, 95% CI [−0.016, +0.004],
+p = 0.25. Per-fold means over seeds — baseline 0.360 / 0.377 / 0.353 / 0.377 /
+0.372, full 0.363 / 0.367 / 0.352 / 0.353 / 0.341.
+
+### Reading
+
+- **RQ1, honestly: the full context-aware model does not outperform the
+  target-only XLM-R baseline on this data.** The point estimate is slightly
+  *negative* and the CI straddles zero. What the full model changes is the
+  error profile (precision 0.33 vs 0.31, recall 0.42 vs 0.49) and calibration
+  (ECE 0.115 vs 0.148); it is not more accurate.
+- The seed-13 baseline was the weak one: its fold-2 collapse was seed-specific
+  (1 collapsed run in 15 for each model), and seeds 42 / 7 put the baseline at
+  0.369 / 0.382. Every stage-B "gain" was measured against that weak seed, so
+  the stage-B deltas overstate context by roughly +0.015.
+- Against the 3-seed baseline (0.368), the single-seed conv+temp result
+  (0.378) is a +0.010 point estimate, inside one fold std. Stage C2 (running)
+  adds seeds 42 and 7 for condition 5; until it lands, "conv+temp helps" is a
+  hypothesis, not a finding.
+- The significance machinery in §12 (cell 40) recomputes the bootstrap /
+  randomization / McNemar over all available seeds at the end of the chain
+  and writes `results/significance.csv`; the pooled-prediction bootstrap
+  above is the same test run from the CSVs.
