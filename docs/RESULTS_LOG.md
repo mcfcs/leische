@@ -424,3 +424,37 @@ Notebook significance over all seeds (`results/significance.csv`,
 [−0.015, +0.004], p = 0.23 at 0.5; −0.002, CI [−0.012, +0.008], p = 0.74 at the
 val-tuned decision. The three-seed gate profile of the full model: conv
 0.156 ± 0.098, temp 0.345 ± 0.087, ret 0.500 ± 0.078.
+
+---
+
+## 2026-09-17 · Stage T — hyperparameter rows (brief §3), one axis at a time
+
+Runs `results/tune-*/` (21 / 25 / 16 / 51 / 123 min); table in
+`results/improvement-rows.csv` (stage T rows); log `results/logs/stage-D-T.log`.
+Same frozen folds, epochs selected on validation, seed 13, compared with the
+unchanged seed-13 reference. **Agreement with the LLM-ensemble labels.**
+
+| row | reference (seed 13) | F1 @0.5 | ΔF1 | AUPRC | collapsed folds | note |
+|---|---|---|---|---|---|---|
+| baseline, lr_encoder 1e-5 | 0.353 ± 0.034 | 0.366 ± 0.023 | +0.013 | 0.308 | 0 | no collapse; equal to the 3-seed baseline mean (0.368) |
+| baseline, lr_encoder 3e-5 | 0.353 ± 0.034 | **0.314 ± 0.069** | −0.039 | 0.283 | **2** | unstable — two folds collapsed |
+| baseline, freeze 4 layers + layer-wise decay 0.9 | 0.353 ± 0.034 | 0.349 ± 0.042 | −0.004 | 0.307 | 2 | no help; 3.7 GB peak |
+| conv+temp, lr_encoder 1e-5 | 0.378 ± 0.016 | 0.373 ± **0.003** | −0.005 | 0.333 | 0 | same mean as its 3-seed average (0.370), tightest spread of any run |
+| full, lr_encoder 1e-5 | 0.356 ± 0.014 | 0.363 ± 0.019 | +0.008 | 0.323 | 0 | still below the baseline |
+
+### Reading
+
+- **No tuned row beats the committed configuration**; the reported baseline
+  stays lr 2e-5 / 1e-4, batch 16 × 2. The encoder learning rate is the one
+  axis that matters, and it matters for *stability*, not for the mean: 3e-5
+  collapses two folds, 1e-5 collapses none and shrinks the fold spread (the
+  conv+temp row has std 0.003), 2e-5 sits between (one collapsed run in 15
+  for both headline models across seeds).
+- Freezing the bottom four layers with layer-wise decay (the §9.4 small-data
+  hygiene) does not help here and collapsed two folds — the head appears to
+  need the full encoder to move.
+- Taken with stages C/C2/E, the tuning stage does not change the conclusion:
+  the target-only baseline and the context models are separated by less than
+  seed noise on these labels, whichever learning rate is used.
+- Stage D (retrieval k=10, XLM-R `[CLS]` retrieval, unbounded temporal window,
+  fixed λ) is running; k=5 already matched k=3 (F1@val-thr 0.374, AUPRC 0.315).
