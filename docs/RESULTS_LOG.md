@@ -352,3 +352,75 @@ edge survives seeds, and it is small.
 - Stage E (annotator-majority label; aux cue heads; label-quality weighting)
   is running: the majority-label rows are the test of whether these
   conclusions hinge on the adjudicator.
+
+---
+
+## 2026-09-16 · Stage E — improvement rows (brief §4) and the seed-pooled matrix
+
+Runs `results/impr-{majority-1_baseline,majority-8_full,aux-cues-8_full,label-weighting-8_full}/`
+(20 / 102 / 100 / 91 min); `results/improvement-rows.csv`; log `results/logs/stage-C-C2-E-D.log`.
+Each row is one flag turned on against an unchanged reference (seed 13).
+
+### Annotator-majority label (the robustness row from ANNOTATION_PROVENANCE §6.4)
+
+Trained and scored on the pre-adjudication majority vote (2,747 positives,
+18.3%), then cross-scored against the other label. Same folds.
+
+| trained on ↓ / scored against → | adjudicated label | majority label |
+|---|---|---|
+| **adjudicated** (stage A, seed 13) — baseline / full | 0.338 / 0.349 | 0.394 / 0.393 |
+| **majority** (this stage) — baseline / full | **0.359 / 0.367** | **0.512 ± 0.020 / 0.520 ± 0.034** |
+
+(F1 at the validation-chosen threshold; F1@0.5 for the majority rows is
+0.512 / 0.519, AUPRC 0.490 / 0.507, ECE 0.118 / 0.121; the two models agree on
+81–82% of decisions.)
+
+- **The RQ1 / RQ2 conclusion does not hinge on the adjudicator.** Under the
+  majority label the full model gains +0.008 over the baseline — the same
+  "no material gain from context" as under the adjudicated label.
+- **The majority label is the more learnable target by a wide margin** (F1 0.51
+  vs 0.35, AUPRC 0.49 vs 0.31 — a random classifier would score 0.18 vs 0.11,
+  so the lift is 2.7× vs 2.9× but the absolute agreement is far higher). And a
+  model trained on the majority label agrees *better* with the adjudicated
+  label (0.359 / 0.367) than a model trained on the adjudicated label does
+  (0.338 / 0.349): the adjudicator's strict "must invert the literal meaning"
+  criterion is a noisier training signal than the annotators' vote even for
+  predicting the adjudicator itself.
+- **The gate profile flips.** Under the adjudicated label the full model puts
+  0.16 / 0.34 / 0.50 on conv / temp / ret; under the majority label it puts
+  **0.34 / 0.26 / 0.40** — conversational context is trusted twice as much
+  when the target label is the one the annotators (who saw that context)
+  produced without the adjudicator's override. `figures/gates.png` (adjudicated)
+  vs the majority-label gate panel drawn by §12.
+
+### Other §4 rows (full model, seed 13, vs the seed-13 reference 0.356 / 0.349 / 0.312)
+
+| row | F1 @0.5 | F1 @val-thr | AUPRC | ECE | per-fold F1@0.5 |
+|---|---|---|---|---|---|
+| aux_cue_heads | **0.372 ± 0.014** (+0.016) | 0.372 ± 0.008 (+0.022) | 0.314 (±0) | 0.138 | 0.377 0.377 0.389 0.363 0.353 |
+| sample_weighting + soft_labels | 0.366 ± 0.020 (+0.010) | 0.366 ± 0.019 (+0.017) | 0.328 (+0.017) | 0.146 | 0.370 0.385 0.383 0.340 0.351 |
+
+Both gains are inside the full model's own seed spread (0.353–0.357 @0.5
+across seeds, fold std 0.014–0.031), so neither is claimed. The cue heads are
+the more interesting of the two: the tightest fold spread of any run so far,
+at no AUPRC cost — worth seeds if compute allows. Flags stay OFF in the
+reported baseline.
+
+### Seed-pooled RQ2 matrix (the notebook's `results/ablation-matrix.csv`, `figures/ablation-*.png`)
+
+| condition | runs | F1 @0.5 | F1 @val-thr | AUPRC | AUROC |
+|---|---|---|---|---|---|
+| 1_baseline | 15 (3 seeds) | **0.368 ± 0.026** | 0.357 ± 0.032 | 0.316 ± 0.031 | 0.786 |
+| 2_conv | 5 | 0.355 ± 0.023 | 0.362 ± 0.019 | 0.327 ± 0.010 | 0.787 |
+| 3_temp | 5 | 0.356 ± 0.043 | 0.355 ± 0.045 | 0.316 ± 0.012 | 0.784 |
+| 4_ret | 5 | 0.350 ± 0.032 | 0.356 ± 0.029 | 0.316 ± 0.025 | 0.776 |
+| 5_conv_temp | 15 (3 seeds) | **0.370 ± 0.025** | 0.370 ± 0.022 | 0.330 ± 0.021 | 0.789 |
+| 6_conv_ret | 5 | 0.355 ± 0.035 | 0.372 ± 0.019 | 0.320 ± 0.015 | 0.776 |
+| 7_temp_ret | 5 | 0.357 ± 0.023 | 0.358 ± 0.022 | 0.303 ± 0.020 | 0.776 |
+| 8_full | 15 (3 seeds) | 0.355 ± 0.024 | 0.355 ± 0.019 | 0.312 ± 0.015 | 0.778 |
+
+Notebook significance over all seeds (`results/significance.csv`,
+`figures/bootstrap.png`), condition 8 − condition 1: ΔF1 −0.006, 95% CI
+[−0.015, +0.004], p = 0.23 at 0.5; −0.002, CI [−0.012, +0.008], p = 0.74 at the
+val-tuned decision. The three-seed gate profile of the full model: conv
+0.156 ± 0.098, temp 0.345 ± 0.087, ret 0.500 ± 0.078.
