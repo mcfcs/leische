@@ -1,0 +1,121 @@
+{
+  "config": {
+    "run_name": "x10-early+heads+soft",
+    "encoder_name": "xlm-roberta-base",
+    "pooling": "mean",
+    "fusion": "early",
+    "block_order": "post,parents,target,replies",
+    "role_prefix": true,
+    "max_len": 512,
+    "budget_target": 192,
+    "budget_post": 128,
+    "budget_parent": 96,
+    "budget_reply": 64,
+    "n_parents": 2,
+    "n_replies": 3,
+    "scalar_features": false,
+    "annotator_heads": true,
+    "aux_weight": 0.5,
+    "soft_labels": true,
+    "lr_encoder": 2e-05,
+    "lr_heads": 0.0001,
+    "batch_size": 16,
+    "grad_accum": 2,
+    "max_epochs": 10,
+    "patience": 3,
+    "dropout": 0.2,
+    "mlp_hidden": 256,
+    "warmup_ratio": 0.1,
+    "grad_clip": 1.0,
+    "seed": 13,
+    "fold": 0,
+    "label_source": "adjudicated"
+  },
+  "summary": {
+    "run": "x10-early+heads+soft",
+    "fold": 0,
+    "seed": 13,
+    "encoder": "xlm-roberta-base",
+    "fusion": "early",
+    "feats": false,
+    "heads": true,
+    "soft": true,
+    "f1": 0.40610687022900765,
+    "precision": 0.39820359281437123,
+    "recall": 0.4143302180685358,
+    "f1_tuned": 0.43010752688172044,
+    "threshold": 0.38,
+    "auprc": 0.3407195711792002,
+    "auroc": 0.8145225972939043,
+    "ece": 0.07298546620802203,
+    "best_val_f1": 0.40476190476190477,
+    "best_epoch": 6,
+    "epochs_run": 9,
+    "min": 6.6,
+    "peak_gb": 8.6,
+    "f1_annotator_avg": 0.3596559812353401
+  },
+  "history": {
+    "train_loss": [
+      0.9784105211407919,
+      0.8475560736497008,
+      0.7503160986198162,
+      0.6389981176184617,
+      0.5659107721413456,
+      0.5000518172515075,
+      0.4597381192206983,
+      0.4265434442237241,
+      0.3957143546488324
+    ],
+    "val_f1": [
+      0.25732899022801303,
+      0.3023255813953488,
+      0.3274336283185841,
+      0.39759036144578314,
+      0.39114391143911437,
+      0.40476190476190477,
+      0.3755868544600939,
+      0.3473684210526316,
+      0.35789473684210527
+    ],
+    "epoch_sec": [
+      42.8,
+      42.6,
+      42.6,
+      42.6,
+      42.6,
+      42.6,
+      42.5,
+      42.6,
+      42.5
+    ],
+    "best_val_f1": 0.40476190476190477,
+    "best_epoch": 6,
+    "epochs_run": 9
+  },
+  "dataset_identity": {
+    "dataset_version": "v1",
+    "prompt_version": "sarc-v2",
+    "uyam_commit": "039c3aa8756f646c8b12d9ef10c13f29260421b7",
+    "n_rows": 15000
+  },
+  "label_authority": {
+    "labels_produced_by": "llm_ensemble",
+    "annotators": [
+      "gemma3",
+      "qwen3",
+      "sealion"
+    ],
+    "adjudicator": [
+      "qwen3-32b"
+    ],
+    "prompt_version": "sarc-v2",
+    "uyam_commit": "039c3aa8756f646c8b12d9ef10c13f29260421b7",
+    "sarcastic_fleiss_kappa": 0.3761,
+    "human_gold": {
+      "n_items": 31,
+      "sarcastic_cohen_kappa": -0.1481
+    },
+    "interpretation": "metrics are measured against LLM-ensemble labels; they quantify agreement with the ensemble, not with human judgement, until the gold subset validates the labels"
+  }
+}

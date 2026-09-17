@@ -599,3 +599,24 @@ checkpoint and no post text in git.
    36.7% coverage.
 4. A zero-shot LLM row from a model family outside the annotator pool (§9.7)
    to contextualise F1 ≈ 0.37 against these labels.
+
+---
+
+## 2026-09-17 · Exploration — a context model that beats the baseline (separate notebook)
+
+`leische_explore_context.ipynb`, 3.4 GPU-hours, artifacts under
+`results/explore/`; full write-up with literature and citations in
+[suggestions/IMPROVEMENTS.md](../suggestions/IMPROVEMENTS.md). Same folds, same
+metrics, same optimiser; the target-only baseline re-run in the same loop.
+**Agreement with the LLM-ensemble labels.**
+
+| 5 folds × seed 13 | F1 @0.5 | AUPRC | AUROC | ECE | paired ΔF1 vs target-only |
+|---|---|---|---|---|---|
+| target-only (same loop) | 0.369 ± 0.016 | 0.319 | 0.777 | 0.114 | — |
+| early fusion + annotator heads + vote-share labels (x10) | **0.405 ± 0.010** | **0.376** | **0.826** | **0.069** | +0.037 ± 0.017, 5/5; bootstrap CI [+0.016, +0.059], p = 0.002 |
+| same + kNN/author priors (x5) | 0.403 ± 0.015 | 0.368 | 0.826 | 0.087 | +0.034 ± 0.025, 5/5; CI [+0.015, +0.054] |
+
+On fold 0 the recipe on xlm-roberta-large reaches F1 0.438 / AUPRC 0.398 /
+AUROC 0.842 (single seed). The gain lives on the rows the three annotators
+agreed on (3-0 votes: F1 0.467 → 0.550) and is absent on contested rows;
+retrieval and author priors do not contribute; the rendering order matters.
