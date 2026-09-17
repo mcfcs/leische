@@ -130,7 +130,7 @@ multi-task setting [[23]](https://arxiv.org/abs/1901.08014) — the pipeline's
 | P5 | **Vote-share soft labels**: target = ½ shipped label + ½ annotator vote share | hard label | free | data-driven smoothing; 2-1 rows stop being trained as if certain |
 | P6 | Encoder rows: xlm-roberta-large, mdeberta-v3-base, roberta-tagalog-base under P1 | xlm-roberta-base | 1–4× | capacity and language fit; report as rows, keep XLM-R base as the thesis architecture |
 | P7 | (not run) **Rationale distillation**: train the student to generate or score the annotators' rationales (Hsieh et al.) | — | large | the 45,000 rationales encode *why* each label was given; the cue heads (+0.016 in stage E) were a first, crude version of this |
-| P8 | (not run) **Prompt-faithful rendering**: mirror the uyam `sarc-v2` prompt's context block verbatim (field names, order, which items) | assumed order | trivial once the prompt is available | the student should see what the teachers saw; `block_order` / `ROLE_PREFIX` in the notebook are the switches |
+| P8 | **Prompt-faithful rendering**: mirror the uyam `sarc-v2` prompt's context block verbatim (markers, order, which items) | the labelled block | trivial (`block_style="uyam"`) | the student should see what the teachers saw — tested in §5 (x14, x15): no gain |
 
 What is deliberately *not* proposed: more retrieval exemplars, a larger
 temporal k, threshold or learning-rate tuning — all measured, all flat.
@@ -163,9 +163,9 @@ place (same data, same frozen folds, same `LABEL_MAPS`, same metrics), then:
 
 ## 5 · Evidence
 
-Two passes of `leische_explore_context.ipynb` on 2026-09-17, 3.4 GPU-hours
+Three passes of `leische_explore_context.ipynb` on 2026-09-17, 3.7 GPU-hours
 total (logs `results/logs/explore-fold0*.log`; artifacts `results/explore/`,
-37 runs). bf16 autocast and length-bucketed batches; the committed pipeline's
+39 runs). bf16 autocast and length-bucketed batches; the committed pipeline's
 optimiser, scheduler, class weights, folds and metrics; `x0` re-runs the
 target-only baseline inside this loop so every comparison is like-for-like
 (x0 on fold 0 / seed 13 scores 0.367 F1 / 0.328 AUPRC here vs 0.369 / 0.328 in
@@ -189,6 +189,8 @@ the committed pipeline). **Agreement with the LLM-ensemble labels.**
 | x11 + priors + soft | P1 + P2/P3 + P5 (no heads) | 0.347 | 0.320 | 0.287 | 0.774 | 0.111 | 5.0 |
 | x12 + priors + heads | P1 + P2/P3 + P4 (no soft) | 0.401 | **0.443** | **0.374** | 0.807 | 0.076 | 5.7 |
 | **x13 large + priors + heads + soft** | x5's recipe on xlm-roberta-large | **0.438** | 0.436 | **0.398** | **0.842** | **0.065** | 15.4 |
+| x14 uyam block + heads + soft | P8: the sarc-v2 prompt's own rendering (target last, uyam markers, ≤6 parents, ≤3 replies) + P4 + P5 | 0.378 | 0.379 | 0.309 | 0.788 | — | 5.4 |
+| x15 uyam block | P8 rendering, fusion only | 0.358 | 0.356 | 0.307 | 0.771 | — | 6.5 |
 
 ### 5.2 Seeds on fold 0 (`results/explore/grid-fold0-seeds.csv`)
 
@@ -266,7 +268,15 @@ level with x0 (0.456 vs 0.459): it has become a better model of the *shipped*
    0.842, ECE 0.065) at 15 min per fold; mDeBERTa-base gives the best base-size
    AUPRC (0.363) but is badly calibrated out of the box; RoBERTa-Tagalog is
    worse everywhere (the corpus is 45% Taglish, 28% English).
-6. **Caveats.** Single seed for most grid rows (seed spread on fold 0 is
+6. **Mirroring the annotator prompt verbatim does not help (P8, tested after the uyam clone
+   arrived).** The exact sarc-v2 rendering — `=== THREAD CONTEXT ===`, `[SUBMISSION r/x]`,
+   `[PARENT depth=d (OP)]`, `[REPLY i]`, target last, up to six parents and three replies
+   (`uyam/src/uyam/annotate/context.py`) — scores 0.358 F1 / 0.307 AUPRC alone (x15) against
+   0.362 / 0.322 for the plain labelled block (x1), and 0.378 / 0.309 with heads + soft votes
+   (x14) against 0.406 / 0.341 (x10), all at seed 13. Single-seed, so inside noise, but there
+   is no sign the student needs the teacher's exact markers; what matters is that the post
+   and the target share one attention map, and that the target is not rendered first (x6).
+7. **Caveats.** Single seed for most grid rows (seed spread on fold 0 is
    ±0.02 F1, as x4 and x10 show); the 5-fold confirmations are one seed each;
    the block order is an assumption until the uyam prompt is mirrored (P8);
    the gain is agreement with an LLM ensemble, and the multi-annotator recipe
@@ -287,9 +297,10 @@ level with x0 (0.456 vs 0.459): it has become a better model of the *shipped*
 2. **Report the annotator-vote slices as a first-class table.** The 3-0 / 2-1
    split explains more variance than any architecture decision in the thesis;
    the manuscript's results chapter should lead with it.
-3. **Mirror the uyam `sarc-v2` prompt in the block renderer** (`block_order`,
-   `ROLE_PREFIX`, which items and how many) and re-run x10 — the one untested
-   lever with a clear mechanism.
+3. **The uyam `sarc-v2` prompt has been mirrored** (`block_style="uyam"` in the
+   notebook) and did not beat the plain labelled block on fold 0; keep the
+   labelled block as the default and treat the rendering as settled unless
+   seeds say otherwise.
 4. **Keep the retrieval channel as a negative result.** Three encoders, three
    k values, two fusion styles and two prior forms all say the same thing;
    that is a finding, and it saves 60% of the compute.

@@ -620,3 +620,6 @@ On fold 0 the recipe on xlm-roberta-large reaches F1 0.438 / AUPRC 0.398 /
 AUROC 0.842 (single seed). The gain lives on the rows the three annotators
 agreed on (3-0 votes: F1 0.467 → 0.550) and is absent on contested rows;
 retrieval and author priors do not contribute; the rendering order matters.
+Mirroring the uyam `sarc-v2` prompt's exact context rendering (target last,
+uyam markers) did not improve on the plain labelled block (fold 0, seed 13:
+0.378 vs 0.406 with heads + soft votes; 0.358 vs 0.362 fusion-only).
