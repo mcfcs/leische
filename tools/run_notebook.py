@@ -42,8 +42,8 @@ NOTEBOOK = ROOT / "leische_pipeline.ipynb"
 _HEADING = re.compile(r"^\s*#{2,3}\s+(?:§)?(\d+[a-z]?)\s*[·\-—:]", re.UNICODE)
 
 
-def load_cells() -> list[dict]:
-    nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+def load_cells(notebook: Path | None = None) -> list[dict]:
+    nb = json.loads((notebook or NOTEBOOK).read_text(encoding="utf-8"))
     cells, section, title = [], "0", "preamble"
     for i, c in enumerate(nb["cells"]):
         src = "".join(c["source"])
@@ -82,9 +82,15 @@ def main() -> int:
     ap.add_argument("--exec", dest="extra", help="script to exec in the notebook namespace afterwards")
     ap.add_argument("--set", action="append", default=[],
                     help="KEY=VALUE environment overrides applied before execution")
+    ap.add_argument("--notebook", default=None,
+                    help="another .ipynb to execute (default: leische_pipeline.ipynb); "
+                         "e.g. the exploration notebook, which pulls the pipeline in itself")
     args = ap.parse_args()
+    global NOTEBOOK
+    if args.notebook:
+        NOTEBOOK = (ROOT / args.notebook).resolve() if not Path(args.notebook).is_absolute() else Path(args.notebook)
 
-    cells = load_cells()
+    cells = load_cells(NOTEBOOK)
     if args.list:
         for c in cells:
             print(f"cell {c['index']:2d}  §{c['section']:<4} {c['title'][:70]}")
