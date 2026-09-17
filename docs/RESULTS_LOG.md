@@ -623,3 +623,24 @@ retrieval and author priors do not contribute; the rendering order matters.
 Mirroring the uyam `sarc-v2` prompt's exact context rendering (target last,
 uyam markers) did not improve on the plain labelled block (fold 0, seed 13:
 0.378 vs 0.406 with heads + soft votes; 0.358 vs 0.362 fusion-only).
+
+---
+
+## 2026-09-17 · Label ceiling — how well the annotators agree with their own verdict
+
+CPU measurement over all 15,000 rows (script in the session scratchpad; the
+numbers are reproducible from `reliability.annotators[].sarcastic`).
+
+| scorer | F1 vs the shipped label | P / R | κ |
+|---|---|---|---|
+| gemma3 (annotator) | 0.576 | 0.45 / 0.81 | 0.51 |
+| sealion (annotator) | 0.560 | 0.42 / 0.86 | 0.49 |
+| qwen3 (annotator) | 0.494 | 0.38 / 0.70 | 0.41 |
+| majority of the three | 0.606 | 0.48 / 0.82 | 0.55 |
+| majority, 3-0 rows only / 2-1 rows only | 0.971 / 0.345 | | |
+| pairwise annotator F1 | 0.41–0.57 (κ 0.27–0.45) | | |
+
+The annotators that produced the label agree with it at F1 0.49–0.58; their
+majority vote at 0.606. That is the ceiling any student model is chasing on
+these labels; the best model so far (exploration x10) is at 0.405. Full
+discussion in [suggestions/SUMMARY.md](../suggestions/SUMMARY.md) §5.
