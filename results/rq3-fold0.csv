@@ -34,3 +34,10 @@ stage2-everywhere,language=taglish,0.6207056075776185,0.6259259259259259,1350
 stage2-everywhere,gold_sarcastic=False,0.6267888178887852,0.6283582089552239,2680
 stage2-everywhere,gold_sarcastic=True,0.2541247492838088,0.5358255451713395,321
 stage2-everywhere,sarcastic ∧ literal≠intended,0.21609502188407573,0.40384615384615385,208
+two-stage (external stage 1),overall,0.6212979666805075,0.6307897367544152,3001
+two-stage (external stage 1),language=english,0.6213473357228976,0.6187050359712231,834
+two-stage (external stage 1),language=tagalog,0.5594417143823537,0.6034271725826194,817
+two-stage (external stage 1),language=taglish,0.6408691708618053,0.6548148148148148,1350
+two-stage (external stage 1),gold_sarcastic=False,0.6359155899232235,0.6358208955223881,2680
+two-stage (external stage 1),gold_sarcastic=True,0.2764051838679968,0.5887850467289719,321
+two-stage (external stage 1),sarcastic ∧ literal≠intended,0.247218505302805,0.47115384615384615,208

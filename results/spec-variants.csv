@@ -1,0 +1,7 @@
+variant,runs,f1@0.5,f1@val-thr,recall@val-thr,auprc,temporal_coverage,retrieval_k,encoder,window_h,lambda_learnable,min
+manuscript-default,5,0.3555 ± 0.0138,0.3490 ± 0.0170,0.3891 ± 0.1014,0.3117 ± 0.0180,36.7%,3,sentence_transformer,48.0,True,0.0
+retrieval-k5,5,0.3756 ± 0.0230,0.3737 ± 0.0153,0.4510 ± 0.1009,0.3152 ± 0.0184,36.7%,5,sentence_transformer,48.0,True,0.0
+retrieval-k10,5,0.3484 ± 0.0273,0.3533 ± 0.0287,0.4036 ± 0.0879,0.3180 ± 0.0152,36.7%,10,sentence_transformer,48.0,True,246.7
+retrieval-xlmr-cls,5,0.3740 ± 0.0141,0.3689 ± 0.0197,0.4907 ± 0.1397,0.3186 ± 0.0068,36.7%,3,xlmr_cls,48.0,True,103.8
+temporal-unbounded,5,0.3702 ± 0.0187,0.3655 ± 0.0216,0.4753 ± 0.1008,0.3329 ± 0.0120,53.5%,3,sentence_transformer,,True,105.3
+temporal-lambda-fixed,5,0.3676 ± 0.0119,0.3646 ± 0.0231,0.4691 ± 0.1194,0.3145 ± 0.0207,36.7%,3,sentence_transformer,48.0,False,93.4

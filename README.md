@@ -17,6 +17,13 @@ reference is [docs/MODEL_PLAN.md](docs/MODEL_PLAN.md).
 > metric measures agreement with the ensemble, not with human judgement, and the
 > pipeline stamps `LABEL_AUTHORITY` onto every artifact saying so.
 
+> **Results (2026-09-17):** the staged training run is logged stage by stage in
+> [docs/RESULTS_LOG.md](docs/RESULTS_LOG.md). Headline: the target-only baseline
+> (F1 0.368 ± 0.026 over 15 runs) and the full context model (0.355 ± 0.024) are not
+> separable beyond seed noise; no channel combination beats the baseline; the
+> two-stage sentiment re-read helps only on the sarcastic ∧ literal≠intended slice.
+> All of it is agreement with the LLM-ensemble labels.
+
 Read before running:
 
 - **[docs/ANNOTATION_PROVENANCE.md](docs/ANNOTATION_PROVENANCE.md)** — how the

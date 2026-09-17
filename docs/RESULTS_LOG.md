@@ -458,3 +458,144 @@ unchanged seed-13 reference. **Agreement with the LLM-ensemble labels.**
   seed noise on these labels, whichever learning rate is used.
 - Stage D (retrieval k=10, XLM-R `[CLS]` retrieval, unbounded temporal window,
   fixed λ) is running; k=5 already matched k=3 (F1@val-thr 0.374, AUPRC 0.315).
+
+---
+
+## 2026-09-17 · Stage D — specification variants (§12b), full model, seed 13
+
+Runs `results/spec-*/`, table `results/spec-variants.csv`; 127 / 247 / 104 /
+105 / 93 min. k=10 needed batch 8 × accum 4 (k=5 already peaked at 15.9 GB
+allocated at batch 16; k=10 at batch 16 hit the cap and was caught cleanly).
+**Agreement with the LLM-ensemble labels.**
+
+| variant (thesis §3.4 wording vs pipeline) | F1 @0.5 | F1 @val-thr | AUPRC | AUROC | temporal coverage |
+|---|---|---|---|---|---|
+| manuscript-default (= condition 8: k=3, MiniLM, 48 h, learnable λ) | 0.356 ± 0.014 | 0.349 | 0.312 | 0.776 | 36.7% |
+| retrieval k=5 | 0.376 ± 0.023 | 0.374 | 0.315 | 0.784 | 36.7% |
+| retrieval k=10 | 0.348 ± 0.027 | 0.353 | 0.318 | 0.778 | 36.7% |
+| retrieval index = XLM-R `[CLS]` (§3.4(3) literally) | 0.374 ± 0.014 | 0.369 | 0.319 | 0.789 | 36.7% |
+| temporal unbounded (≤10 posts, no 48 h rule) | 0.370 ± 0.019 | 0.366 | **0.333** | 0.790 | **53.5%** |
+| temporal λ fixed at init | 0.368 ± 0.012 | 0.365 | 0.315 | 0.781 | 36.7% |
+
+### Reading
+
+- Every variant lands in 0.348–0.376 F1 — inside the full model's own seed
+  spread (0.353–0.357 across three seeds, fold std 0.012–0.027). None of the
+  three manuscript-vs-pipeline disagreements (M2 window, M3 encoder, M2 λ)
+  changes the result, so each can be reported as "no measurable effect"
+  rather than argued.
+- **Retrieval k:** k=5 ≈ k=3 ≈ k=10 on AUPRC (0.312–0.318). More exemplars
+  do not make the retrieval channel useful; they only cost memory and time.
+- **Retrieval encoder:** the literal XLM-R `[CLS]` index is not worse than the
+  sentence encoder (AUPRC 0.319 vs 0.312). The M3 swap can stay for the
+  stationarity argument, but it is not what limits the channel.
+- **Temporal window:** lifting the 48 h rule raises coverage from 36.7% to
+  53.5% of rows and gives the best AUPRC of any full-model run (0.333) — the
+  only variant with a directional story, and it is a data-availability
+  story, exactly as METHODOLOGY_REVIEW M2 predicted. The manuscript's 48 h
+  rule should be reported as a constraint the 24-day collection window
+  imposes, with this row beside it.
+- **λ:** learnable vs fixed makes no difference (0.368 vs 0.356 / 0.315 vs
+  0.312) — the decay ranks an author's few posts against each other and most
+  rows have one or none.
+
+---
+
+## 2026-09-17 · RQ3 update — external stage 1 + our stage 2 (§13 re-run)
+
+Same fold-0 checkpoint and heads as the earlier RQ3 entry; new row.
+`results/rq3-fold0.csv`, `figures/rq3-macro_f1.png`, `figures/rq3-accuracy.png`.
+
+| run (fold-0 test, macro-F1 / accuracy) | overall (3,001) | gold-sarcastic (321) | sarcastic ∧ literal≠intended (208) |
+|---|---|---|---|
+| stage 1 external only (`aux.tx_sentiment`) | 0.625 / 0.631 | 0.243 / 0.486 | 0.198 / 0.341 |
+| **two-stage, external stage 1 + our stage 2 on flagged rows** | 0.621 / **0.631** | **0.276 / 0.589** | **0.247 / 0.471** |
+| two-stage, our stage 1 (previous entry) | 0.604 / 0.610 | 0.248 / 0.477 | 0.209 / 0.351 |
+| two-stage, oracle flag, our stage 1 | 0.619 / 0.628 | 0.254 / 0.536 | 0.216 / 0.404 |
+
+This is the RQ3 claim in its defensible form: **with a strong context-free
+stage 1, re-reading only the rows the sarcasm model flags costs nothing
+overall (0.631 → 0.631 accuracy) and raises accuracy on the slice where
+sarcasm inverts the sentiment from 0.34 to 0.47** (+0.10 on all gold-sarcastic
+rows). The flag's 0.35 precision is what caps it; the earlier finding that
+"stage 2 everywhere" beats gating still holds for our weak stage-1 head, not
+for the external one.
+
+---
+
+## 2026-09-17 · Closing summary (brief §6)
+
+Roughly 37 GPU-hours over 2026-09-15 → 17: stages A–E, C2, T and D, 9
+improvement/tuning rows, 6 specification variants, 3 seeds on the headline
+pair and on conv+temp, RQ3 on fold 0. Every run is in `results/<run_name>/`
+with `fold_metrics.csv`, `predictions.csv`, `val_predictions.csv`,
+`histories.json`, `run.json` (config, dataset identity, commit, wall-clock,
+peak VRAM, `LABEL_AUTHORITY`); all on `folds-v1-a419a4bc95.json`, never
+edited. Figures in `results/figures/`.
+
+### What the numbers are
+
+- **RQ1 — negative.** Target-only XLM-R baseline F1 0.368 ± 0.026 (15 runs)
+  vs the full context model 0.355 ± 0.024; ΔF1 −0.013 ± 0.036, 4 wins of 15,
+  p ≈ 0.2; pooled bootstrap CI [−0.016, +0.004]. The context model is better
+  calibrated (ECE 0.115 vs 0.148) and more precise (0.33 vs 0.31) at lower
+  recall (0.42 vs 0.49); it is not more accurate against these labels.
+- **RQ2 — no channel or combination separates from the baseline beyond seed
+  noise.** Conv+temp is the best point estimate (0.370 ± 0.025 over 15 runs,
+  ΔF1 +0.002, AUPRC +0.014 at p 0.07); every retrieval condition is at or
+  below the baseline, and the gate nevertheless assigns retrieval half its
+  weight. Per-instance gating works mechanically (gate std ≈ 0.1; the profile
+  flips to favour conversation under the majority label) but buys no F1.
+- **RQ3 — positive in its narrow form.** Re-reading flagged rows with the
+  intended-sentiment head lifts accuracy on sarcastic ∧ literal≠intended from
+  0.34 to 0.47 with no overall cost, given the external stage 1.
+- **The dominant effect in the data is the label.** Rows the annotators
+  disagreed on (2-1 votes; 44% of the positives) score F1 ≈ 0.26 for every
+  model; unanimous rows ≈ 0.43. Training on the pre-adjudication majority
+  label gives F1 0.51 / AUPRC 0.49 and *better* agreement with the adjudicated
+  label than training on it directly. All RQ1/RQ2 conclusions hold under both
+  labels.
+
+### What backs them
+
+`results/ablation-matrix.csv` (seed-pooled), `results/significance.csv`
+(notebook bootstrap / randomization / McNemar over all seeds),
+`results/improvement-rows.csv` (E + T rows with cross-label scoring),
+`results/spec-variants.csv`, `results/rq3-fold0.csv`, and the figures listed
+in each entry above. Per-fold and per-seed numbers are in each run's
+`fold_metrics.csv`.
+
+### What changed (all committed on `single-notebook`, plain messages)
+
+Headless driver `tools/run_notebook.py`; `run_cv` with validation-chosen
+threshold + temperature, AUPRC/AUROC/ECE, val predictions, fold-0
+checkpoints; `run_or_load`; vectorised retrieval banks and item scatter;
+selftext budget honoured; `label_source`; staged §12 (A/B/C/C2/E/T), §12b
+(D), §13 on the real checkpoint with the external-stage-1 row; fixed
+overfit-16 smoke test; batch 16 × 2 after a VRAM probe; `demo/` (FastAPI +
+static page, verified on CPU against the real checkpoint). No fold file, no
+checkpoint and no post text in git.
+
+### What could not be verified
+
+- Nothing here says anything about human judgement: 31 gold items, κ −0.148.
+- Single-seed rows (stage B's six conditions, all of D, E and T) are
+  compared to a reference that itself varies ±0.015 across seeds; only the
+  headline pair and conv+temp have three seeds.
+- The demo's page was exercised through its API and a headless DOM, never
+  in a real browser.
+- RQ3 is fold 0 only (the heads and the flag come from one checkpoint).
+
+### What to do next, with more compute
+
+1. Seeds for aux-cue heads (the tightest single-seed row, +0.016) and for
+   the unbounded temporal window (best AUPRC) — 4 h each.
+2. RQ3 across all five folds with each fold's own checkpoint — 5 × 3 min
+   once `save_checkpoint` is on for every fold.
+3. The label is the lever, not the model: grow the gold subset (H1), settle
+   the adjudicator's remit (H2), and re-export; every number above moves
+   with it. Back-filling author history (H6) is the only cheap data change
+   that would let the temporal channel be tested rather than reported as
+   36.7% coverage.
+4. A zero-shot LLM row from a model family outside the annotator pool (§9.7)
+   to contextualise F1 ≈ 0.37 against these labels.
