@@ -193,3 +193,40 @@ these labels is not going to agree with the verdict more consistently than the
   negative is worse than chance.
 - **Seed** — the random initialisation; on this data it moves F1 by ±0.03, so
   single runs are never reported as results.
+
+---
+
+## 8 · A worked example (the trained fold-0 checkpoints, via the demo engine)
+
+Parent post: *"Sara Duterte at yung ₱125M confidential funds na naubos sa loob ng
+11 days"* (selftext about the 'Mary Grace Piattos' receipts and the OVP's
+"lawful and proper" reply). Reply under test: **"Ang galing ni Sara, ang dami
+nyang imaginary friends"**. Probabilities are temperature-scaled; the verdict
+uses each checkpoint's validation-chosen threshold (0.61 full, 0.65 baseline).
+
+| input | full model P(sarcastic) | gates conv / temp / ret | baseline P(sarcastic) |
+|---|---|---|---|
+| reply + parent post, all channels | **0.55** (raw 0.57) | 0.34 / 0.22 / 0.44 | 0.41 |
+| reply without the post | 0.42 | 0.27 / 0.25 / 0.49 | — |
+| reply + post, retrieval switched off | **0.62 → SARCASTIC** | 0.38 / 0.25 / 0.37 | — |
+| reply alone, every channel off | 0.50 | — | — |
+| control: sincere praise ("napakalinaw ng paliwanag niya…") | 0.28 | | 0.48 |
+| control: literal complaint ("Corrupt talaga si Sara…") | 0.21 | | 0.30 |
+| control: neutral question about the COA audit | 0.33 | | 0.42 |
+
+How the model infers it: from the reply alone it is at 0.50 — the phrase
+*"ang galing ni Sara"* is praise on its face and "imaginary friends" is only a
+hint. Adding the parent post raises it to 0.55 (the conversational channel
+carries the clash between praise and a corruption thread); the retrieval
+channel's nearest sarcastic training exemplar is *"Galing talaga ni Sara!!! /s"*,
+but its non-sarcastic neighbours are generic and pull the score down, so
+switching retrieval off gives 0.62 and a positive verdict — the same
+"retrieval is a distractor" pattern as in the ablation. The ranking is right
+throughout: the sarcastic reply scores far above the sincere praise (0.28),
+the literal complaint (0.21) and the neutral question (0.33), so the miss at
+the 0.61 threshold is a threshold call, not a ranking failure (at the
+committed 0.5 decision it is flagged). The target-only baseline cannot make
+the distinction: without the post it ranks the *sincere* praise (0.48) above
+the sarcastic reply (0.41). The sentiment heads read literal → intended as
+negative → negative, which is wrong on the literal side ("ang galing" is
+positive on its face) — the weak stage-1 head noted in the RQ3 entry.
