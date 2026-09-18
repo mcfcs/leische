@@ -1,14 +1,10 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "leische"
 version = "0.1.0"
-description = "Context-Aware Sarcasm Detection in Code-Switching Social Media Posts — model repository (thesis)"
+description = "Context-Aware Sarcasm Detection in Code-Switching Social Media Posts — single-notebook model pipeline (thesis)"
 requires-python = ">=3.12"
 dependencies = [
-    "torch==2.6.0",
+    "torch==2.9.1",
     "transformers>=4.51,<5",
     "sentence-transformers>=4.1",
     "datasets>=3.5",
@@ -26,23 +22,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
+# demo/ only — the pipeline itself never imports these (FABILE_BRIEF §5)
+demo = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+explore = [
+    "protobuf>=4",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/leische"]
-
 [tool.uv]
-# torch cu124 wheels live on the PyTorch index only
+# dependency-only project: the whole pipeline lives in leische_pipeline.ipynb
+package = false
+
 [tool.uv.sources]
-torch = [{ index = "pytorch-cu124" }]
+# cu128, not cu124: the RTX 5090 is Blackwell (sm_120) and the cu124 wheels
+# are built only up to sm_90 — they fail at the first kernel launch.
+torch = [{ index = "pytorch-cu128" }]
 
 [[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"

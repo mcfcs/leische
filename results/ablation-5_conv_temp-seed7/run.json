@@ -1,0 +1,103 @@
+{
+  "config": {
+    "dataset_version": "v1",
+    "run_name": "ablation-5_conv_temp-seed7",
+    "encoder_name": "xlm-roberta-base",
+    "pooling": "mean",
+    "d_model": 256,
+    "max_len_target": 192,
+    "max_len_context": 96,
+    "max_len_selftext": 128,
+    "use_conv": true,
+    "use_temp": true,
+    "use_ret": false,
+    "conv_role_embeddings": true,
+    "temporal_k": 5,
+    "temporal_window_hours": 48.0,
+    "temporal_lambda_init": 0.0289,
+    "temporal_lambda_learnable": true,
+    "missing_channel": "zeros",
+    "retrieval_encoder": "sentence_transformer",
+    "retrieval_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "retrieval_k": 3,
+    "retrieval_prototypes": false,
+    "mlp_hidden": 256,
+    "dropout": 0.2,
+    "lr_encoder": 2e-05,
+    "lr_heads": 0.0001,
+    "warmup_ratio": 0.1,
+    "max_epochs": 10,
+    "patience": 3,
+    "batch_size": 16,
+    "grad_accum": 2,
+    "fp16": true,
+    "grad_clip": 1.0,
+    "vram_fraction": 0.85,
+    "dataloader_workers": 0,
+    "pin_memory": false,
+    "seeds": [
+      7
+    ],
+    "class_weighting": "inverse_freq",
+    "label_source": "adjudicated",
+    "max_steps_per_epoch": null,
+    "sample_weighting": false,
+    "sample_weights": {
+      "unanimous": 1.0,
+      "unanimous_partial": 0.85,
+      "majority": 0.9,
+      "adjudicator": 0.7,
+      "human": 1.0
+    },
+    "soft_labels": false,
+    "focal_loss": false,
+    "focal_gamma": 2.0,
+    "weighted_sampler": false,
+    "target_pos_frac": 0.25,
+    "aux_cue_heads": false,
+    "aux_polarity_shift": false,
+    "aux_language_head": false,
+    "aux_loss_weight": 0.25,
+    "freeze_bottom_layers": 0,
+    "layerwise_lr_decay": null,
+    "temperature_scaling": false,
+    "tune_threshold_on_val": false,
+    "n_folds": 5,
+    "natural_only_metrics": true,
+    "smoke": false,
+    "save_checkpoint": false
+  },
+  "dataset_identity": {
+    "dataset_version": "v1",
+    "prompt_version": "sarc-v2",
+    "uyam_commit": "039c3aa8756f646c8b12d9ef10c13f29260421b7",
+    "n_rows": 15000
+  },
+  "folds_file": "folds-v1-a419a4bc95.json",
+  "leische_commit": "9640fb79690d8dca526e3a190994565ad49a8ecf",
+  "gate_passed": true,
+  "claims_validated": false,
+  "label_authority": {
+    "labels_produced_by": "llm_ensemble",
+    "annotators": [
+      "gemma3",
+      "qwen3",
+      "sealion"
+    ],
+    "adjudicator": [
+      "qwen3-32b"
+    ],
+    "prompt_version": "sarc-v2",
+    "uyam_commit": "039c3aa8756f646c8b12d9ef10c13f29260421b7",
+    "sarcastic_fleiss_kappa": 0.3761,
+    "human_gold": {
+      "n_items": 31,
+      "sarcastic_cohen_kappa": -0.1481
+    },
+    "interpretation": "metrics are measured against LLM-ensemble labels; they quantify agreement with the ensemble, not with human judgement, until the gold subset validates the labels"
+  },
+  "wall_clock_sec": 3738.3,
+  "peak_vram_gb": 9.99,
+  "torch": "2.9.1+cu128",
+  "gpu": "NVIDIA GeForce RTX 5090 Laptop GPU"
+}
