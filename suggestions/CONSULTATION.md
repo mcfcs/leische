@@ -86,7 +86,61 @@ much of each context source to trust for *this* comment.
 
 ### 2.3 Small test of v2 (500 sarcastic + 1,000 non-sarcastic training rows)
 
-*(appended below after the run of 2026-09-18)*
+Run on 2026-09-18 with `leische_prototype_v3.ipynb` §5b (14 GPU-minutes in
+total). Training rows: a seeded sample of 500 sarcastic + 1,000 non-sarcastic
+rows from fold 0's training half (thread grouping inherited, so nothing in the
+test fold shares a thread with them); every prior, retrieval bank and class
+weight built from those 1,500 rows only; early stopping on fold 0's own
+validation split; **scored on the full fold-0 test set** (3,001 rows, 321
+sarcastic, the natural 10.7% base rate). Single seed. A functional test, not a
+result — absolute numbers are lower than the 10.8k-row runs by design.
+
+| row (trained on 1,500 rows) | F1 @0.5 | P / R | AUPRC | AUROC | ECE | mean gates conv / temp / ret / null | min | peak VRAM |
+|---|---|---|---|---|---|---|---|---|
+| target-only (reference) | 0.302 | 0.25 / 0.39 | 0.220 | 0.742 | 0.156 | — | 0.9 | 6.6 GB |
+| **v1** committed gate (conv + temp + retrieval) | 0.317 | 0.22 / 0.57 | 0.211 | 0.728 | 0.185 | 0.34 / 0.34 / 0.32 (flat) | 2.6 | 9.6 GB |
+| v2-a: matching gate + null channel + channel dropout | 0.295 | 0.22 / 0.45 | 0.230 | 0.741 | 0.181 | 0.20 / 0.38 / 0.14 / 0.28 | 3.1 | 9.7 GB |
+| v2-b: v2-a + target-aware item encoding | 0.294 | 0.21 / 0.51 | 0.198 | 0.710 | 0.200 | 0.19 / 0.31 / 0.23 / 0.27 | 3.2 | 14.0 GB |
+| **v2-c: v2-b + per-annotator heads + vote-share labels + cue-supervised gates** | **0.362** | 0.28 / 0.51 | **0.275** | **0.758** | **0.131** | 0.12 / 0.45 / 0.42 / 0.02 | 4.0 | 14.1 GB |
+
+What the gates did (mean gate by how many thread turns the row has, and on
+rows the annotators flagged `contextual_incongruity`):
+
+| row | conv gate: post only → 1 turn → 2+ turns | null gate: post only → 2+ turns | conv gate on incongruity-flagged vs other rows |
+|---|---|---|---|
+| v2-a | 0.22 → 0.18 → 0.16 | 0.28 → 0.29 | **0.26 vs 0.19** (unsupervised) |
+| v2-b | 0.21 → 0.18 → 0.16 | 0.27 → 0.28 | 0.21 vs 0.19 |
+| v2-c | 0.14 → 0.11 → 0.10 | 0.02 → 0.02 | **0.23 vs 0.11** (supervised) |
+
+Reading, honestly:
+
+- **The votes carry the gain again.** With 1,500 training rows the committed
+  gate (v1) is at the target-only level; the redesigned gate alone (v2-a) and
+  the target-aware encoding (v2-b) do not move F1; adding the per-annotator
+  heads, vote-share labels and cue-supervised gates (v2-c) lifts every metric:
+  +0.06 F1, +0.055 AUPRC and the best calibration of the five. The pattern is
+  the same one the full-data exploration found, now reproduced inside the
+  thesis's channel-and-gate framework.
+- **The gate redesign changes the gate's behaviour, not (yet) the accuracy.**
+  The matching-feature gate stops trusting retrieval (0.32 → 0.14) and its
+  conversational gate opens more on rows the annotators flagged as
+  context-incongruent even without supervision (0.26 vs 0.19); with the cue
+  loss the separation doubles (0.23 vs 0.11). That is the first evidence in
+  the project of a gate responding to *why* a comment is sarcastic.
+- **Two things did not work as designed.** The null gate does not rise when a
+  row has no thread turns (0.28 → 0.29, flat), so "no context helps" is not
+  being learned from availability at this data size; and in v2-c the null
+  gate collapsed to 0.02 because its supervision target (polarity inversion
+  without incongruity) is positive on only 4% of rows, so the loss teaches it
+  to stay shut. The fix is to supervise the null gate with "no thread turn
+  available" rows instead, or not at all; this is corrected in
+  `GATED_FUSION_V2.md` §2.7 and is a one-line change in the notebook.
+- **Cost.** Target-aware item encoding doubles the item tokens (14 GB peak at
+  batch 16 vs 9.6 GB) for no gain at this size; on the full data it should be
+  re-tested (v2-b vs v2-a) before being kept.
+- **Next step, if the consultation agrees:** run rows v2-a → v2-c on the full
+  fold-0 training set (~30 min), then seeds and five folds for whichever row
+  beats the exploration's 0.405 (`NEXT_SESSION_BRIEF.md` T1).
 
 ---
 

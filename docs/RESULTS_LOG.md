@@ -644,3 +644,26 @@ The annotators that produced the label agree with it at F1 0.49–0.58; their
 majority vote at 0.606. That is the ceiling any student model is chasing on
 these labels; the best model so far (exploration x10) is at 0.405. Full
 discussion in [suggestions/SUMMARY.md](../suggestions/SUMMARY.md) §5.
+
+---
+
+## 2026-09-18 · Gated fusion v2 — small-data functional test (prototype v3 notebook)
+
+`leische_prototype_v3.ipynb` §5b: 500 sarcastic + 1,000 non-sarcastic training
+rows sampled from fold 0's training half (priors, banks and class weights from
+those rows only), fold 0 validation for early stopping, scored on the full
+fold-0 test set; one seed; 14 GPU-minutes. `results/prototype_v3/`.
+**Agreement with the LLM-ensemble labels; a functional test, not a result.**
+
+| row (1,500 training rows) | F1 @0.5 | AUPRC | AUROC | ECE | gates conv/temp/ret/null |
+|---|---|---|---|---|---|
+| target-only | 0.302 | 0.220 | 0.742 | 0.156 | — |
+| v1 committed gate | 0.317 | 0.211 | 0.728 | 0.185 | 0.34 / 0.34 / 0.32 |
+| v2-a matching gate + null + channel dropout | 0.295 | 0.230 | 0.741 | 0.181 | 0.20 / 0.38 / 0.14 / 0.28 |
+| v2-b + target-aware items | 0.294 | 0.198 | 0.710 | 0.200 | 0.19 / 0.31 / 0.23 / 0.27 |
+| v2-c + annotator heads + vote-share labels + cue-supervised gates | **0.362** | **0.275** | **0.758** | **0.131** | 0.12 / 0.45 / 0.42 / 0.02 |
+
+Conv gate on incongruity-flagged vs other rows: v2-a 0.26 vs 0.19
+(unsupervised), v2-c 0.23 vs 0.11 (supervised). Null gate flat across thread
+availability; collapsed under its cue supervision (target positive on 4% of
+rows) — supervision target to be changed. Full-data rows not yet run.

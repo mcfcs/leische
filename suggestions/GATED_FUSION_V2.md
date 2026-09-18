@@ -143,10 +143,13 @@ result with a clean mechanism behind it.
   that produced the +0.037 in the exploration; heads sit on `feats`.
 - **Cue-supervised gates**: auxiliary BCE `contextual_incongruity → g_conv`
   (the thread clashes with the literal reading ⇒ the conversational gate
-  should be open) and `polarity_inversion ∧ ¬contextual_incongruity → g_null`
-  (inversion that is readable from the target alone ⇒ no context needed).
-  Weight ~0.1; masked where cues are missing. This is the first supervision
-  the gate has ever had, and it comes free from the dataset.
+  should be open). Weight ~0.1; masked where cues are missing. This is the
+  first supervision the gate has ever had, and it comes free from the dataset.
+  *Do not* supervise the null gate with `polarity_inversion ∧ ¬incongruity`:
+  that target is positive on only 4% of rows and the small test (2026-09-18)
+  showed it drives the null gate to 0.02 everywhere. If the null gate is
+  supervised at all, use "no thread turn available" as the target, or leave it
+  to the classification loss.
 - Keep the committed lr 2e-5 for base, 1e-5 for large; class weights per fold;
   early stopping on validation F1; R-Drop optional if seed variance stays ugly.
 
@@ -233,6 +236,15 @@ Total ≈ 3–4 GPU-hours on the base encoder, +2 h for the large row.
 ---
 
 ## 6 · What to expect, honestly
+
+**Small-data test (2026-09-18, 500 + 1,000 training rows, full fold-0 test set,
+one seed; details in `CONSULTATION.md` §2.3):** committed gate 0.317 F1 /
+0.211 AUPRC; v2-a 0.295 / 0.230; v2-b 0.294 / 0.198; **v2-c 0.362 / 0.275**,
+ECE 0.131. The matching gate stops trusting retrieval (0.14) and opens the
+conversational gate on incongruity-flagged rows (0.23 vs 0.11 with the cue
+loss; 0.26 vs 0.19 without); the null gate does not track availability yet.
+The full-data rows are still to be run.
+
 
 - On the current adjudicated labels: **0.41–0.45 F1** if v2-c works as
   designed (the exploration's +0.037 plus a gate that stops spending half its
